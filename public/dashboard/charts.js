@@ -472,7 +472,7 @@
       const r = sg.row;
       C.showTip(cx, cyClient, `${r.ok ? 'OK' : 'Error'} ${r.status} · ${fmt.ms(r.ms)}`, [
         { value: r.model || '—', label: 'model' },
-        { value: r.agent || '—', label: 'client' },
+        { value: r.agent || '—', label: 'conversation' },
         { value: `${fmt.compact(r.prompt_tokens)} → ${fmt.compact(r.completion_tokens)} ≈`, label: 'tokens' },
         { value: fmt.time(r.ts), label: r.error_type || 'started' },
       ]);
