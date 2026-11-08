@@ -5,7 +5,7 @@
 //   arrives as one burst. The UI shows a pending state with elapsed time.
 // - The server keeps a sticky remote thread per x-agent-session and only forwards
 //   turns after the last assistant message. Regenerate, edit, retry and the first
-//   send after a Stop reset that session first (POST /reset-session).
+//   send after a Stop reset that session first (POST /app/reset-session).
 // - The client keeps the full transcript and always sends it.
 (() => {
   'use strict';
@@ -206,7 +206,7 @@
     try {
       const body = await F.api('GET', '/app/models');
       const list = (body.data || []).map(m => m.id);
-      if (!list.length) throw new F.ApiError('GET /v1/models returned no models.', { type: 'no_models' });
+      if (!list.length) throw new F.ApiError('GET /app/models returned no models.', { type: 'no_models' });
       S.models.list = body.data;
       S.models.ids = new Set(list);
       // base = an id whose -thinking or -nosearch variant exists; else the shortest id
@@ -968,10 +968,10 @@
     try {
       // history=drop: this chat always sends its own transcript, so the server's copy
       // (which can hold turns an edit replaced) must not be replayed into the new chat.
-      await F.api('POST', `/reset-session?agent=${encodeURIComponent(agentFor(conv))}&history=drop`, { timeout: 15000 });
+      await F.api('POST', `/app/reset-session?agent=${encodeURIComponent(agentFor(conv))}&history=drop`, { timeout: 15000 });
     } catch (e) {
       if (e.status === 404) return; // the server has no session for this chat: nothing to reset
-      throw Object.assign(new F.ApiError(`POST /reset-session failed before sending: ${e.message}`, { status: e.status, type: 'reset_failed' }), { cause: e });
+      throw Object.assign(new F.ApiError(`POST /app/reset-session failed before sending: ${e.message}`, { status: e.status, type: 'reset_failed' }), { cause: e });
     }
   }
 
@@ -1280,7 +1280,7 @@
         h('li', { class: 'fact' }, h('span', { class: 'fact-label', text: 'Age' }), h('span', { class: 'fact-value', text: `${s.age_min} min` })),
         h('li', { class: 'fact' }, h('span', { class: 'fact-label', text: 'Client id' }), h('span', { class: 'fact-value mono-id', text: s.agent }))));
     } catch (e) {
-      if (!F.handleGate(e)) box.replaceChildren(F.notice('crit', 'GET /v1/sessions failed', F.errorText(e)));
+      if (!F.handleGate(e)) box.replaceChildren(F.notice('crit', 'GET /app/sessions failed', F.errorText(e)));
     }
   }
 
