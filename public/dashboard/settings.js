@@ -426,8 +426,8 @@
       pref(F.t('Theme'), null, 'theme', [{ value: 'system', label: F.t('System') }, { value: 'light', label: F.t('Light') }, { value: 'dark', label: F.t('Dark') }]),
       pref(F.t('Material'), F.t('System follows the reduced-transparency setting of your OS'), 'material', [{ value: 'system', label: F.t('System') }, { value: 'glass', label: F.t('Glass'), icon: 'material' }, { value: 'solid', label: F.t('Solid') }]),
       pref(F.t('Density'), null, 'density', [{ value: 'comfortable', label: F.t('Comfortable') }, { value: 'compact', label: F.t('Compact') }]),
-      row(F.t('Language'), F.t('Saved in this browser. Chinese is used when the browser language is Chinese and you have not chosen.'),
-        F.segmented(F.t('Language'), [{ value: 'en', label: 'English' }, { value: 'zh', label: '中文' }], F.lang.get(), (v) => { if (v !== F.lang.get()) F.lang.set(v); })));
+      row(F.t('Language'), F.t('Saved in this browser. The browser language is used until you choose one.'),
+        F.segmented(F.t('Language'), [{ value: 'en', label: 'English' }, { value: 'ru', label: 'Русский' }, { value: 'zh', label: '中文' }], F.lang.get(), (v) => { if (v !== F.lang.get()) F.lang.set(v); })));
   }
 
   async function renderChat() {
