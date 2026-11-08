@@ -23,7 +23,7 @@
     st.root = root;
     const statusSeg = F.segmented(F.t('Status'), [{ value: '', label: 'All' }, { value: 'error', label: 'Errors' }], st.f.status, (v) => { st.f.status = v; changed(); });
     const selects = h('div', { class: 'filter-selects' });
-    const client = h('input', { type: 'search', class: 'input input-search', placeholder: F.t('Client'), 'aria-label': F.t('Filter by client'), 'data-view-filter': '', spellcheck: 'false' });
+    const client = h('input', { type: 'search', class: 'input input-search', placeholder: F.t('Conversation'), 'aria-label': F.t('Filter by conversation'), 'data-view-filter': '', spellcheck: 'false' });
     client.addEventListener('input', () => { st.f.client = client.value.trim(); changed(); });
     const notice = h('div', { class: 'view-banner' });
     const table = h('table', { class: 'data-table requests-table rows-clickable' });
@@ -257,7 +257,7 @@
       field('Path', r.path, true, true),
       field('Model', r.model, true, true),
       field('Account', r.account, true, true),
-      field('Client', r.agent, true, true),
+      field('Conversation', r.agent, true, true),
       field('IP', r.ip, true, true),
       field('Streamed', r.stream == null ? null : r.stream ? 'yes' : 'no'),
       field('Answered locally', r.local ? 'yes, no DeepSeek call' : 'no'))));
@@ -271,7 +271,7 @@
     const links = h('div', { class: 'insp-links' });
     if (r.agent && r.agent.startsWith('dashboard:')) links.append(h('a', { class: 'btn btn-secondary btn-sm', href: `#/chat/${encodeURIComponent(r.agent.slice('dashboard:'.length))}` }, F.icon('chat'), h('span', { class: 'btn-label', text: 'Open conversation' })));
     if (r.account) links.append(h('a', { class: 'btn btn-secondary btn-sm', href: `#/accounts/${encodeURIComponent(r.account)}` }, F.icon('accounts'), h('span', { class: 'btn-label', text: 'Open account' })));
-    if (r.agent) links.append(h('a', { class: 'link', href: F.hashFor('requests', '', { client: r.agent }), text: 'Only this client' }));
+    if (r.agent) links.append(h('a', { class: 'link', href: F.hashFor('requests', '', { client: r.agent }), text: 'Only this conversation' }));
     body.append(links);
     body.append(h('p', { class: 'meta', text: 'The log keeps metadata only. Prompts and answers are never stored or shown here.' }));
     F.inspector.open({
