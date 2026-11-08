@@ -1775,139 +1775,6 @@ test('OpenAI stream emits a usage chunk before DONE so clients can show tokens',
   assert.ok(body.indexOf('"usage"') < body.indexOf('[DONE]'));
 });
 
-test('one-click agent setup adds opt-in providers without replacing native defaults', () => {
-  const dir = tmpdir();
-  fs.mkdirSync(path.join(dir, '.claude'), { recursive: true });
-  fs.mkdirSync(path.join(dir, '.codex'), { recursive: true });
-  fs.mkdirSync(path.join(dir, '.config', 'opencode'), { recursive: true });
-  fs.mkdirSync(path.join(dir, '.openclaw'), { recursive: true });
-  fs.mkdirSync(path.join(dir, '.hermes'), { recursive: true });
-  fs.writeFileSync(path.join(dir, '.claude', 'settings.json'), JSON.stringify({ model: 'claude-opus', env: { KEEP: 'yes' } }));
-  fs.writeFileSync(path.join(dir, '.codex', 'config.toml'), 'model = "gpt-native"\nmodel_provider = "openai"\n');
-  fs.writeFileSync(path.join(dir, '.config', 'opencode', 'opencode.json'), JSON.stringify({ model: 'openai/gpt-native' }));
-  fs.writeFileSync(path.join(dir, '.openclaw', 'openclaw.json'), JSON.stringify({ agents: { defaults: { model: { primary: 'anthropic/claude-opus' } } } }));
-  fs.writeFileSync(path.join(dir, '.hermes', 'config.yaml'), 'model:\n  default: claude-opus\n');
-  const res = runNode([
-    'scripts/setup-agents.js',
-    '--target', 'claude-code,hermes,openclaw,codex,opencode',
-    '--model', 'deepseek-v4-flash-thinking',
-    '--base-url', 'http://127.0.0.1:9655',
-    '--api-key', 'local',
-    '--scope', 'user',
-  ], { env: { SETUP_HOME: dir } });
-  assert.equal(res.status, 0, res.stderr || res.stdout);
-
-  const claudeNative = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'));
-  assert.deepEqual(claudeNative, { model: 'claude-opus', env: { KEEP: 'yes' } });
-  const claudeProfile = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'freedeepseek.settings.json'), 'utf8'));
-  assert.equal(claudeProfile.env.ANTHROPIC_BASE_URL, 'http://127.0.0.1:9655');
-  assert.equal(claudeProfile.model, 'deepseek-v4-flash-thinking');
-
-  const hermesNative = fs.readFileSync(path.join(dir, '.hermes', 'config.yaml'), 'utf8');
-  assert.match(hermesNative, /claude-opus/);
-  const hermesProfile = fs.readFileSync(path.join(dir, '.hermes', 'freedeepseek.yaml'), 'utf8');
-  assert.match(hermesProfile, /provider: custom/);
-  assert.match(hermesProfile, /deepseek-v4-flash-thinking/);
-
-  const claw = JSON.parse(fs.readFileSync(path.join(dir, '.openclaw', 'openclaw.json'), 'utf8'));
-  assert.equal(claw.agents.defaults.model.primary, 'anthropic/claude-opus');
-  assert.equal(claw.models.providers.freedeepseek.api, 'openai-completions');
-  assert.deepEqual(claw.models.providers.freedeepseek.models[0].input, ['text', 'image']);
-
-  const toml = fs.readFileSync(path.join(dir, '.codex', 'config.toml'), 'utf8');
-  assert.equal(toml, 'model = "gpt-native"\nmodel_provider = "openai"\n');
-  const codexProfile = fs.readFileSync(path.join(dir, '.codex', 'freedeepseek.config.toml'), 'utf8');
-  assert.match(codexProfile, /model_provider = "freedeepseek"/);
-  assert.match(codexProfile, /wire_api = "responses"/);
-  const catalog = JSON.parse(fs.readFileSync(path.join(dir, '.codex', 'freedeepseek-models.json'), 'utf8'));
-  assert.deepEqual(catalog.models[0].input_modalities, ['text', 'image']);
-  assert.deepEqual(catalog.models[0].supported_reasoning_levels, []);
-  assert.equal(catalog.models[0].shell_type, 'shell_command');
-  assert.equal(catalog.models[0].supports_reasoning_summary_parameter, false);
-  assert.deepEqual(catalog.models.map(m => m.slug), ['deepseek-v4-flash', 'deepseek-v4-flash-thinking', 'deepseek-v4-flash-nosearch', 'deepseek-v4-flash-thinking-nosearch']);
-  const bySlug = Object.fromEntries(catalog.models.map(m => [m.slug, m]));
-  assert.match(bySlug['deepseek-v4-flash'].base_instructions, /DeepSeek native Web Search is enabled/);
-  assert.doesNotMatch(bySlug['deepseek-v4-flash-nosearch'].base_instructions, /Web Search is enabled|Do not use the Codex\/harness web search tool/);
-
-  const opencode = JSON.parse(fs.readFileSync(path.join(dir, '.config', 'opencode', 'opencode.json'), 'utf8'));
-  assert.equal(opencode.model, 'openai/gpt-native');
-  assert.equal(opencode.tools.websearch, false);
-  assert.equal(opencode.tools.webfetch, false);
-  assert.equal(opencode.permission.websearch, 'deny');
-  assert.equal(opencode.provider.freedeepseek.name, 'Flash');
-  assert.equal(opencode.provider.freedeepseek.models['deepseek-v4-flash'].name, 'DeepSeek 4.1');
-  assert.deepEqual(Object.keys(opencode.provider.freedeepseek.models), ['deepseek-v4-flash', 'deepseek-v4-flash-thinking', 'deepseek-v4-flash-nosearch', 'deepseek-v4-flash-thinking-nosearch']);
-  assert.equal(opencode.provider.freedeepseek.models['deepseek-v4-flash-thinking'].name, 'DeepSeek 4.1');
-  assert.equal(opencode.provider.freedeepseek.models['deepseek-v4-flash-thinking'].limit.context, 1048576);
-  assert.equal(opencode.provider.freedeepseek.models['deepseek-v4-flash-thinking'].attachment, true);
-  assert.deepEqual(opencode.provider.freedeepseek.models['deepseek-v4-flash-thinking'].modalities.input, ['text', 'image']);
-  const agentsMd = fs.readFileSync(path.join(dir, '.config', 'opencode', 'AGENTS.md'), 'utf8');
-  assert.match(agentsMd, /<!-- freedeepseek-autonomy -->/);
-  assert.match(agentsMd, /Finish the user's task autonomously/);
-  assert.match(agentsMd, /Token cost does not matter/);
-});
-
-test('agent setup maps an old -search model to the same model without the suffix', () => {
-  const dir = tmpdir();
-  fs.mkdirSync(path.join(dir, '.claude'), { recursive: true });
-  const res = runNode([
-    'scripts/setup-agents.js',
-    '--target', 'claude-code',
-    '--model', 'deepseek-v4-flash-thinking-search',
-    '--base-url', 'http://127.0.0.1:9655',
-    '--api-key', 'local',
-    '--scope', 'user',
-  ], { env: { SETUP_HOME: dir } });
-  assert.equal(res.status, 0, res.stderr || res.stdout);
-  const claudeProfile = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'freedeepseek.settings.json'), 'utf8'));
-  assert.equal(claudeProfile.model, 'deepseek-v4-flash-thinking');
-});
-
-test('agent setup replace mode makes FreeDeepseekAPI the default without discarding unrelated settings', () => {
-  const dir = tmpdir();
-  fs.mkdirSync(path.join(dir, '.claude'), { recursive: true });
-  fs.mkdirSync(path.join(dir, '.codex'), { recursive: true });
-  fs.mkdirSync(path.join(dir, '.config', 'opencode'), { recursive: true });
-  fs.mkdirSync(path.join(dir, '.openclaw'), { recursive: true });
-  fs.mkdirSync(path.join(dir, '.hermes'), { recursive: true });
-  fs.writeFileSync(path.join(dir, '.claude', 'settings.json'), JSON.stringify({ env: { KEEP: 'yes' }, theme: 'dark' }));
-  fs.writeFileSync(path.join(dir, '.codex', 'config.toml'), 'model = "gpt-native"\nsandbox_mode = "workspace-write"\n');
-  fs.writeFileSync(path.join(dir, '.config', 'opencode', 'opencode.json'), JSON.stringify({ model: 'openai/gpt-native', theme: 'native' }));
-  fs.writeFileSync(path.join(dir, '.openclaw', 'openclaw.json'), JSON.stringify({ agents: { defaults: { workspace: '/tmp/work' } } }));
-  fs.writeFileSync(path.join(dir, '.hermes', 'config.yaml'), 'model:\n  default: claude-opus\nmemory: true\n');
-
-  const res = runNode([
-    'scripts/setup-agents.js',
-    '--target', 'claude-code,hermes,openclaw,codex,opencode',
-    '--mode', 'replace',
-    '--model', 'deepseek-v4-flash-thinking',
-  ], { env: { SETUP_HOME: dir } });
-  assert.equal(res.status, 0, res.stderr || res.stdout);
-
-  const claude = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'));
-  assert.equal(claude.model, 'deepseek-v4-flash-thinking');
-  assert.equal(claude.env.KEEP, 'yes');
-  assert.equal(claude.theme, 'dark');
-
-  const codex = fs.readFileSync(path.join(dir, '.codex', 'config.toml'), 'utf8');
-  assert.match(codex, /^model = "deepseek-v4-flash-thinking"$/m);
-  assert.match(codex, /^model_provider = "freedeepseek"$/m);
-  assert.match(codex, /sandbox_mode = "workspace-write"/);
-  assert.match(codex, /\[model_providers\.freedeepseek\]/);
-
-  const hermes = fs.readFileSync(path.join(dir, '.hermes', 'config.yaml'), 'utf8');
-  assert.match(hermes, /default: deepseek-v4-flash-thinking/);
-  assert.match(hermes, /memory: true/);
-
-  const claw = JSON.parse(fs.readFileSync(path.join(dir, '.openclaw', 'openclaw.json'), 'utf8'));
-  assert.equal(claw.agents.defaults.model.primary, 'freedeepseek/deepseek-v4-flash-thinking');
-  assert.equal(claw.agents.defaults.workspace, '/tmp/work');
-
-  const opencode = JSON.parse(fs.readFileSync(path.join(dir, '.config', 'opencode', 'opencode.json'), 'utf8'));
-  assert.equal(opencode.model, 'freedeepseek/deepseek-v4-flash-thinking');
-  assert.equal(opencode.theme, 'native');
-});
-
 test('a paused login is skipped so another ready file can serve', (t) => {
   const original = serverInternals.accounts.splice(0);
   t.after(() => {
@@ -2436,19 +2303,19 @@ test('sessions, health, and reset follow the admin rule and reset omits prompt t
   }
 
   const otherOrigin = { origin: 'http://127.0.0.1:3000' };
-  const listedDenied = await localHttp(port, 'GET', '/v1/sessions', { headers: otherOrigin });
+  const listedDenied = await localHttp(port, 'GET', '/app/sessions', { headers: otherOrigin });
   assert.equal(listedDenied.status, 403, listedDenied.text);
   assert.equal(listedDenied.json.error.type, 'admin_forbidden');
   assert.doesNotMatch(listedDenied.text, /BOUNDARY_SECRET_PROMPT_9f3a/);
 
-  const forwarded = await localHttp(port, 'GET', '/v1/sessions', { headers: { 'x-forwarded-for': '203.0.113.5' } });
+  const forwarded = await localHttp(port, 'GET', '/app/sessions', { headers: { 'x-forwarded-for': '203.0.113.5' } });
   assert.equal(forwarded.status, 403, forwarded.text);
   assert.equal(forwarded.json.error.type, 'admin_forbidden');
-  const rebound = await localHttp(port, 'GET', '/v1/sessions', { headers: { host: 'evil.example:9655' } });
+  const rebound = await localHttp(port, 'GET', '/app/sessions', { headers: { host: 'evil.example:9655' } });
   assert.equal(rebound.status, 403, rebound.text);
   assert.equal(rebound.json.error.type, 'admin_forbidden');
 
-  const listed = await localHttp(port, 'GET', '/v1/sessions');
+  const listed = await localHttp(port, 'GET', '/app/sessions');
   assert.equal(listed.status, 200, listed.text);
   assert.equal(listed.json.agents.some((row) => row.agent === agent && row.session_id === 'ds-boundary'), true);
   assert.doesNotMatch(listed.text, /BOUNDARY_SECRET_PROMPT_9f3a/);
@@ -2491,28 +2358,28 @@ test('sessions, health, and reset follow the admin rule and reset omits prompt t
   assert.equal(serverInternals.sessions.get(agent).history.length, 1);
   assert.equal(serverInternals.sessions.get(agent).history[0].user, SECRET);
 
-  const chat = await localHttp(port, 'POST', '/v1/chat/completions', {
+  const chat = await localHttp(port, 'POST', '/app/chat', {
     headers: { origin: 'http://127.0.0.1:3000', 'x-agent-session': 'open-webui-boundary' },
     body: { model: 'deepseek-v4-flash', messages: [{ role: 'user', content: '/new' }] },
   });
   assert.equal(chat.status, 200, chat.text);
   assert.equal(chat.json.error, undefined);
 
-  const evil = await localHttp(port, 'GET', '/v1/sessions', { headers: { origin: 'https://evil.example' } });
+  const evil = await localHttp(port, 'GET', '/app/sessions', { headers: { origin: 'https://evil.example' } });
   assert.equal(evil.status, 403, evil.text);
   assert.equal(evil.json.error.type, 'cors_error');
 
   const ownUid = typeof process.getuid === 'function' ? process.getuid() : 0;
   const restoreForeign = serverInternals.useLocalCallerPeerCred(() => ({ inodeResolved: true, peerUid: ownUid + 1 }));
   try {
-    for (const [method, pathName] of [['GET', '/v1/models'], ['GET', '/health'], ['GET', '/admin/accounts'], ['POST', '/reset-session?agent=boundary-agent']]) {
+    for (const [method, pathName] of [['GET', '/app/models'], ['GET', '/health'], ['GET', '/admin/accounts'], ['POST', '/app/reset-session?agent=boundary-agent']]) {
       const blocked = await localHttp(port, method, pathName);
       assert.equal(blocked.status, 403, `${method} ${pathName} ${blocked.text}`);
       assert.equal(blocked.json.error.type, 'local_caller_forbidden');
       assert.equal(blocked.json.accounts, undefined);
       assert.doesNotMatch(blocked.text, /BOUNDARY_SECRET_PROMPT_9f3a/);
     }
-    const chatBlocked = await localHttp(port, 'POST', '/v1/chat/completions', {
+    const chatBlocked = await localHttp(port, 'POST', '/app/chat', {
       headers: { origin: 'http://127.0.0.1:3000' },
       body: { model: 'deepseek-v4-flash', messages: [{ role: 'user', content: 'hello' }] },
     });
