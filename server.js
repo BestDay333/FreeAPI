@@ -705,8 +705,8 @@ function addUsage(counters, entry) {
     counters.usd += entry.usd || 0;
     counters.ms_total += entry.ms || 0;
 }
-function apiForPath(pathname) {
-    return pathname === '/app/chat' ? 'web' : 'web';
+function apiForPath() {
+    return 'web';
 }
 // Replace credential values of loaded accounts and bearer tokens, then clip.
 // Applied when a row is stored and again when it is served.
@@ -4701,7 +4701,7 @@ async function handleRequest(req, res) {
         return;
     }
 
-    const apiMode = 'openai';
+    const apiMode = 'web';
     const acceptedPostPaths = ['/app/chat'];
     if (req.method !== 'POST' || !acceptedPostPaths.includes(url.pathname)) {
         res.writeHead(404); res.end('Not found'); return;
