@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 /**
- * OpenAI-compatible API server wrapping DeepSeek Web API
- * Supports BOTH streaming (SSE) and non-streaming modes
- * Includes tool calling: injects tool definitions into system prompt,
- * parses LLM text responses for TOOL_CALL patterns, returns OpenAI tool_calls format.
- * 
- * Per-agent sessions: each unique `user` field gets its own DeepSeek web session.
+ * Web application backend for DeepSeek Web accounts.
+ * Streams chat responses to the built-in browser interface and manages local account sessions.
+ * Tool definitions are translated into DeepSeek Web prompts and parsed from model replies.
+ * Each browser conversation gets its own DeepSeek web session.
  * Auto-reset: sessions reset when message chain reaches 100 messages or age > 2 hours.
  * Listens on 127.0.0.1:9655 by default (HOST is configurable).
  * HTTP unless both TLS_CERT_FILE and TLS_KEY_FILE are set and readable.
@@ -562,14 +560,14 @@ function selectAccountForSession(session, holder = null) {
             const waitSec = Math.max(1, Math.ceil((waiting.cooldownUntil - now) / 1000));
             // Tagged so the request handler returns 429 + Retry-After instead of a
             // generic 500 (integrator backoff keys on the status code, not the text).
-            const err = new Error(`All DeepSeek auth accounts are cooling down. Retry in ~${waitSec}s or import a fresh account with npm run auth:import.`);
+            const err = new Error(`All DeepSeek auth accounts are cooling down. Retry in ~${waitSec}s or add another account in the Dashboard.`);
             err.status = 429; err.retryAfter = waitSec; err.type = 'rate_limit';
             throw err;
         }
         const switchedOff = accounts.filter(a => accountHasCredentials(a) && !isAccountEnabled(a)).map(a => a.id);
         const noAuth = new Error(switchedOff.length
             ? `Every DeepSeek auth account with credentials is paused or disabled (${switchedOff.join(', ')}). Resume one in /dashboard, or set "enabled": true in its auth file and reload.`
-            : 'No valid DeepSeek auth accounts. Run npm run auth or npm run auth:import.');
+            : 'No valid DeepSeek auth accounts. sign in with npm run auth or add an account in the Dashboard.');
         noAuth.status = 503; noAuth.type = 'no_auth';
         throw noAuth;
     }
@@ -590,7 +588,7 @@ function clientIp(req) {
     }
     return raw || 'unknown';
 }
-// Abuse limits for callers outside this machine. Loopback is never limited, so local agents keep
+// Abuse limits for callers outside this machine. Loopback is never limited, so the local browser keeps
 // working. Only the socket address, or the hop a trusted proxy appended, decides who that is: the
 // left end of X-Forwarded-For is whatever the client sent.
 function socketIp(socket) {
@@ -708,9 +706,7 @@ function addUsage(counters, entry) {
     counters.ms_total += entry.ms || 0;
 }
 function apiForPath(pathname) {
-    if (pathname === '/v1/messages') return 'anthropic';
-    if (pathname === '/v1/responses') return 'responses';
-    return 'openai';
+    return pathname === '/app/chat' ? 'web' : 'web';
 }
 // Replace credential values of loaded accounts and bearer tokens, then clip.
 // Applied when a row is stored and again when it is served.
@@ -3966,7 +3962,7 @@ function positiveIntParam(params, name, { min = 1, max = Number.MAX_SAFE_INTEGER
     }
     return Number(raw);
 }
-const REQUEST_APIS = new Set(['openai', 'anthropic', 'responses']);
+const REQUEST_APIS = new Set(['web']);
 function adminRequestsList(params) {
     const limit = positiveIntParam(params, 'limit', { max: MAX_REQUEST_LOG }) ?? 100;
     const beforeId = positiveIntParam(params, 'before_id');
@@ -4672,7 +4668,7 @@ async function handleRequest(req, res) {
     }
 
     // Reset session for a specific agent (or all if no agent specified).
-    // Same admin rule as GET /v1/sessions when no proxy key is set.
+    // Same local dashboard access rule as GET /app/sessions when no proxy key is set.
     if (req.method === 'POST' && url.pathname === '/app/reset-session') {
         const access = adminAccessDecision({ remoteAddress: req.socket.remoteAddress, headers: req.headers });
         if (!access.allowed) {
