@@ -164,13 +164,11 @@
     },
     shortModel: (id) => (id ? String(id).replace(/^deepseek-v4-/, '') : '—'),
     endpoint(path) {
-      if (path === '/v1/chat/completions') return F.t('OpenAI chat');
-      if (path === '/v1/messages') return F.t('Anthropic messages');
-      if (path === '/v1/responses') return F.t('Responses');
+      if (path === '/app/chat') return F.t('Web chat');
       return path || '—';
     },
     api(api) {
-      const label = { openai: 'OpenAI chat', anthropic: 'Anthropic messages', responses: 'Responses' }[api];
+      const label = { web: 'Web chat' }[api];
       return label ? F.t(label) : (api || '—');
     },
     cooldownReason: (r) => F.t({ rate_limit: 'rate limit', auth: 'auth error' }[r] || r || 'cooldown'),
