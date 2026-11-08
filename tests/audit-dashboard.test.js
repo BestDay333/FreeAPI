@@ -79,3 +79,18 @@ test('dashboard Chinese covers every English string and translates the main navi
   assert.equal(t('{toString} {constructor}', {}), '{toString} {constructor}');
 });
 
+
+test('the dashboard uses private web routes and no longer advertises external LLM endpoints', () => {
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const chat = fs.readFileSync(path.join(DASHBOARD_DIR, 'chat.js'), 'utf8');
+  const settings = fs.readFileSync(path.join(DASHBOARD_DIR, 'settings.js'), 'utf8');
+  const index = fs.readFileSync(path.join(DASHBOARD_DIR, 'index.html'), 'utf8');
+  assert.match(server, /const acceptedPostPaths = \['\/app\/chat'\]/);
+  assert.match(server, /web_interface_only/);
+  assert.doesNotMatch(server, /acceptedPostPaths = \[[^\]]*\/v1\//);
+  assert.match(chat, /fetch\('\/app\/chat'/);
+  assert.match(chat, /'\/app\/models'/);
+  assert.doesNotMatch(chat, /\/v1\/(chat\/completions|messages|responses)/);
+  assert.doesNotMatch(settings, /OpenAI SDK|Anthropic SDK|\/v1\/chat\/completions/);
+  assert.doesNotMatch(index, /data-nav="agents"|view-agents|dashboard\/agents\.js/);
+});
