@@ -2287,6 +2287,10 @@ test('sessions, health, and reset follow the admin rule and reset omits prompt t
   t.after(() => new Promise((resolve) => httpServer.close(resolve)));
   const port = httpServer.address().port;
 
+  const nonBrowser = await localHttp(port, 'GET', '/app/models', { headers: { 'sec-fetch-site': 'none' } });
+  assert.equal(nonBrowser.status, 403, nonBrowser.text);
+  assert.equal(nonBrowser.json.error.type, 'web_interface_only');
+
   if (process.platform === 'linux') {
     let seen = null;
     const restoreSeen = serverInternals.useLocalCallerPeerCred((sock) => {
@@ -2324,7 +2328,7 @@ test('sessions, health, and reset follow the admin rule and reset omits prompt t
   const healthCross = await localHttp(port, 'GET', '/health', { headers: otherOrigin });
   assert.equal(healthCross.status, 200, healthCross.text);
   assert.equal(healthCross.json.status, 'ok');
-  assert.equal(healthCross.json.service, 'FreeDeepseekAPI');
+  assert.equal(healthCross.json.service, 'FreeDeepseek Web');
   assert.equal(healthCross.json.accounts, undefined);
   assert.equal(healthCross.json.chat_locks, undefined);
   assert.equal(healthCross.json.agents, undefined);
@@ -2341,17 +2345,17 @@ test('sessions, health, and reset follow the admin rule and reset omits prompt t
   assert.ok(Array.isArray(health.json.chat_locks));
   assert.equal(typeof health.json.agents, 'number');
 
-  const resetDenied = await localHttp(port, 'POST', `/reset-session?agent=${agent}`, { headers: otherOrigin });
+  const resetDenied = await localHttp(port, 'POST', `/app/reset-session?agent=${agent}`, { headers: otherOrigin });
   assert.equal(resetDenied.status, 403, resetDenied.text);
   assert.equal(resetDenied.json.error.type, 'admin_forbidden');
   assert.doesNotMatch(resetDenied.text, /BOUNDARY_SECRET_PROMPT_9f3a/);
   assert.equal(serverInternals.sessions.get(agent).id, 'ds-boundary');
 
-  const resetProxied = await localHttp(port, 'POST', `/reset-session?agent=${agent}`, { headers: { forwarded: 'for=203.0.113.5' } });
+  const resetProxied = await localHttp(port, 'POST', `/app/reset-session?agent=${agent}`, { headers: { forwarded: 'for=203.0.113.5' } });
   assert.equal(resetProxied.status, 403, resetProxied.text);
   assert.equal(serverInternals.sessions.get(agent).id, 'ds-boundary');
 
-  const reset = await localHttp(port, 'POST', `/reset-session?agent=${agent}`);
+  const reset = await localHttp(port, 'POST', `/app/reset-session?agent=${agent}`);
   assert.equal(reset.status, 200, reset.text);
   assert.deepEqual(reset.json, { status: 'session_reset', agent, history_preserved: 1 });
   assert.doesNotMatch(reset.text, /BOUNDARY_SECRET_PROMPT_9f3a/);
