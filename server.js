@@ -4562,6 +4562,13 @@ async function handleRequest(req, res) {
 
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
+    const isDashboardBackend = url.pathname.startsWith('/app/') || url.pathname === '/admin' || url.pathname.startsWith('/admin/');
+    if (isDashboardBackend && req.headers['sec-fetch-site'] !== 'same-origin') {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'This route is available only to the web interface.', type: 'web_interface_only' } }));
+        return;
+    }
+
     const isPublicProbe = req.method === 'GET' && (url.pathname === '/' || url.pathname === '/health' || url.pathname === '/readyz' || isDashboardPath(url.pathname));
     if (!isPublicProbe && !isProxyAuthorized(req.headers.authorization)) {
         if (remoteClient) remoteGuard.failedAuth(remoteIp);
