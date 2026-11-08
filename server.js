@@ -4610,7 +4610,7 @@ async function handleRequest(req, res) {
         const includePrivateStatus = PROXY_API_KEY
             ? isProxyAuthorized(req.headers.authorization)
             : adminAccessDecision({ remoteAddress: req.socket.remoteAddress, headers: req.headers }).allowed;
-        const health = { status: 'ok', service: 'FreeDeepseekAPI' };
+        const health = { status: 'ok', service: 'FreeDeepseek Web' };
         if (includePrivateStatus) Object.assign(health, {
             models: SUPPORTED_MODEL_IDS,
             unsupported_models: Object.keys(MODEL_CONFIGS).filter(id => !MODEL_CONFIGS[id].supported),
@@ -4636,7 +4636,7 @@ async function handleRequest(req, res) {
         return;
     }
 
-    // Models: OpenAI-compatible list exposes only aliases verified to work through this proxy.
+    // Models available to the built-in web chat.
     if (req.method === 'GET' && url.pathname === '/app/models') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ object: 'list', data: SUPPORTED_MODEL_IDS.map(id => ({ id, object: 'model', created: 1700000000, owned_by: 'deepseek-web', real_model: MODEL_CONFIGS[id].real_model, capabilities: MODEL_CONFIGS[id].capabilities })) }));
@@ -4651,7 +4651,7 @@ async function handleRequest(req, res) {
     }
 
     // Sessions status. With no proxy key this is an admin read: another loopback
-    // origin can still call chat (Open WebUI) but must not list sessions.
+    // Other origins must not list the browser's active chat sessions.
     if (req.method === 'GET' && url.pathname === '/app/sessions') {
         const access = adminAccessDecision({ remoteAddress: req.socket.remoteAddress, headers: req.headers });
         if (!access.allowed) {
@@ -4824,7 +4824,7 @@ async function handleRequest(req, res) {
             if (!isKnownModel(requestedModel)) {
                 logError(400, 'invalid_model', `Unknown model: ${requestedModel}`);
                 res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: { message: `Unknown model: ${requestedModel}`, type: 'invalid_model', supported_models: SUPPORTED_MODEL_IDS, model_capabilities_url: '/v1/model-capabilities' } }));
+                res.end(JSON.stringify({ error: { message: `Unknown model: ${requestedModel}`, type: 'invalid_model', supported_models: SUPPORTED_MODEL_IDS, model_capabilities_url: '/app/model-capabilities' } }));
                 return;
             }
             if (!isSupportedModel(requestedModel)) {
@@ -5792,7 +5792,7 @@ async function main() {
     printBanner();
     requireProxyApiKey(PROXY_API_KEY, isTruthy(process.env.REQUIRE_PROXY_API_KEY));
     if (!isLoopbackHost(HOST) && !PROXY_API_KEY) {
-        console.warn(`[DS-API] WARNING: HOST=${HOST} exposes the proxy without authentication. Set PROXY_API_KEY or bind to 127.0.0.1.`);
+        console.warn(`[DS-API] WARNING: HOST=${HOST} exposes the web interface without authentication. Set PROXY_API_KEY or bind to 127.0.0.1.`);
         if (PROXY_ADMIN_ALLOW_REMOTE) {
             console.warn('[DS-API] WARNING: PROXY_ADMIN_ALLOW_REMOTE=1 without PROXY_API_KEY lets anyone on the network pause, resume, and reload your DeepSeek accounts.');
         }
@@ -5809,16 +5809,14 @@ async function main() {
     // Periodically evict idle sessions (unref'd so it never keeps the process alive).
     setInterval(sweepIdleSessions, 10 * 60 * 1000).unref();
     server.listen(PORT, HOST, () => {
-        console.log(`[DS-API] Server on ${publicScheme()}://${HOST}:${PORT} (multi-agent sessions enabled)`);
+        console.log(`[DS-API] Web application on ${publicScheme()}://${HOST}:${PORT}`);
         console.log('[DS-API] POST /app/chat (Dashboard chat, stream=true|false)');
-        console.log('[DS-API] External Anthropic API: disabled');
-        console.log('[DS-API] External OpenAI Responses API: disabled');
-        console.log('[DS-API] GET  /v1/models — supported OpenAI-compatible models');
-        console.log('[DS-API] GET  /v1/model-capabilities — real model mapping and capabilities');
-        console.log('[DS-API] GET  /v1/sessions — list active agent sessions');
+        console.log('[DS-API] GET  /app/models — models available to the web chat');
+        console.log('[DS-API] GET  /app/model-capabilities — web chat model capabilities');
+        console.log('[DS-API] GET  /app/sessions — active web chat sessions');
         console.log('[DS-API] POST /app/reset-session?agent=<id> — reset agent session');
         console.log('[DS-API] POST /app/reset-session?agent=all — reset ALL sessions');
-        console.log(`[DS-API] GET  /dashboard — account dashboard (admin API: /admin/accounts${PROXY_API_KEY || PROXY_ADMIN_ALLOW_REMOTE ? '' : ', localhost only'})`);
+        console.log(`[DS-API] GET  /dashboard — web interface (/admin/* backend${PROXY_API_KEY || PROXY_ADMIN_ALLOW_REMOTE ? '' : ', localhost only'})`);
         // A restart after an update keeps the tab the user already has open.
         if (startup.openDashboard && process.env.FDSA_RESTARTED !== '1') {
             const url = dashboardUrl(HOST, PORT);
@@ -5859,7 +5857,6 @@ module.exports = {
         // Tests swap the updater and the restart hook; each returns a function that restores the original.
         useUpdater(next) { const prev = updater; updater = next; return () => { updater = prev; }; },
         useRestart(next) { const prev = restartProcess; restartProcess = next; return () => { restartProcess = prev; }; },
-        // Agents page: point HOME/PATH at a temp dir, simulate a build without the setup module, or slow the writer.
         useAgentContext(next) { const prev = agentCtxOverride; agentCtxOverride = next; return () => { agentCtxOverride = prev; }; },
         useAgentModule(next) { const prev = agentModuleLoader; agentModuleLoader = next; return () => { agentModuleLoader = prev; }; },
         useAgentApply(next) { const prev = agentApply; agentApply = next; return () => { agentApply = prev; }; },
