@@ -2250,6 +2250,7 @@ function localHttp(port, method, pathName, { body, headers = {} } = {}) {
       path: pathName,
       agent: false,
       headers: {
+        'sec-fetch-site': 'same-origin',
         ...(payload ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) } : {}),
         ...headers,
       },
