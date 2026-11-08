@@ -1,154 +1,50 @@
-<p align="center">
-  <img src="docs/assets/logo.png" alt="FreeDeepseekAPI" width="160" />
-</p>
+# FreeDeepseek Web
 
-<h1 align="center">FreeDeepseekAPI</h1>
+为你自己的 DeepSeek 网页账号提供的网页聊天应用。你可以在一个浏览器界面中聊天、管理账号、查看用量并调整应用设置。
 
-<p align="center">
-  <strong>把免费的 DeepSeek 账号变成 API</strong>
-</p>
+本项目有意采用**纯网页界面**。不再提供 OpenAI 兼容 API、Anthropic API，也不再集成 OpenCode、Cursor、Claude Code、Codex 或其他外部客户端。
 
-<p align="center">
-  <a href="https://github.com/dekrezz/FreeDeepseekAPI/blob/main/LICENSE"><img alt="Apache License 2.0" src="https://img.shields.io/badge/license-Apache%202.0-green.svg" /></a>
-  <img alt="Node.js 18 plus" src="https://img.shields.io/badge/node-18%2B-339933.svg" />
-  <img alt="No npm dependencies" src="https://img.shields.io/badge/dependencies-0-blue.svg" />
-  <img alt="OpenAI compatible" src="https://img.shields.io/badge/OpenAI-compatible-111111.svg" />
-</p>
+## 环境要求
 
-<p align="center">
-  <a href="README.md">English</a> ·
-  <a href="README.ru.md">Русский</a> ·
-  <strong>简体中文</strong>
-</p>
+- Node.js 18 或更新版本
+- Google Chrome
+- DeepSeek 账号
 
-FreeDeepseekAPI 运行在你的电脑上，把免费的 [chat.deepseek.com](https://chat.deepseek.com) 账号变成本地 API。凡是支持 OpenAI 或 Anthropic 的应用，都能通过它使用 DeepSeek，比如 Open WebUI、Claude Code、Codex、Cursor。不需要付费密钥。
-
-## 快速上手
-
-需要 [Node.js](https://nodejs.org) 18 或更高版本、Git、Google Chrome 和一个 DeepSeek 账号。
+## 启动
 
 ```bash
-git clone --branch stable https://github.com/dekrezz/FreeDeepseekAPI.git
-cd FreeDeepseekAPI
+git clone https://github.com/BestDay333/FreeAPI.git
+cd FreeAPI
 npm run auth
 npm run dashboard
 ```
 
-1. `npm run auth` 会打开 Chrome。选择 **Sign in with Chrome**，登录 DeepSeek，发一条简短的消息（比如 `ok`），然后回到终端。
-2. `npm run dashboard` 会启动代理并打开控制台，可以直接在里面聊天。
+1. `npm run auth` 会打开 Chrome，登录 DeepSeek 并创建本地账号会话。
+2. `npm run dashboard` 会启动网页应用。打开终端中显示的地址。
 
-## 连接应用
+## 应用功能
 
-在应用的设置里填写：
+- **聊天** — 流式回答、浏览器本地聊天记录和图片附件。
+- **账号** — 管理多个 DeepSeek 网页账号，并为聊天选择账号。
+- **状态与用量** — 查看账号状态、请求记录和 token 统计。
+- **设置** — 外观、语言、更新和本地聊天数据。
 
-| 设置 | 值 |
-|---|---|
-| Base URL | `http://127.0.0.1:9655/v1` |
-| API key | 任意文字 |
-| 模型 | `deepseek-v4-flash` |
+## 仅支持网页界面
 
-在 Docker 里运行的 Open WebUI 要改用 `http://host.docker.internal:9655/v1`。
+本项目不再提供公开的 LLM API。应用只通过内部路由与自己的网页界面通信；这些路由属于实现细节，不是第三方集成 API。旧的 `/v1/*` 地址不再支持。
 
-## 配置编程代理
+## 安全
 
-保持代理运行，然后执行：
+服务器默认只监听 `127.0.0.1`。不要直接暴露到公共互联网。如果确实需要从其他设备访问网页界面，请使用可信的私有网络或正确配置的 HTTPS 反向代理，并设置 `PROXY_API_KEY`。
 
-```bash
-npm run setup:agents
-```
+这是对 DeepSeek 网页聊天的非官方集成。DeepSeek 随时可能更改或限制该服务。
 
-它会把 DeepSeek 作为额外选项加到 Claude Code、Codex、OpenCode、Hermes、OpenClaw 和 Cursor 中。你现有的设置不变，也可以在向导里跳过这一步。控制台里同样可以操作：Settings → Agents。
+## 文档
 
-## 常见问题
-
-<details>
-<summary><strong>真的免费吗？</strong></summary>
-
-是的。用的就是你在 DeepSeek 网站上的免费账号。
-
-</details>
-
-<details>
-<summary><strong>这是 DeepSeek 官方项目吗？</strong></summary>
-
-不是。它对接的是 DeepSeek 不公开的网页聊天接口，这个接口随时可能变化。变化之后，项目会跟着更新。
-
-</details>
-
-<details>
-<summary><strong>账号会被封吗？</strong></summary>
-
-有可能。如果同一个登录同时有两个聊天在发送，DeepSeek 可能封禁它几天。所以代理让每个登录同一时间只跑一个聊天，其余的排队。这样风险更低，但无法完全消除，规则由 DeepSeek 决定。
-
-</details>
-
-<details>
-<summary><strong>我的登录信息和消息会去哪里？</strong></summary>
-
-登录信息保存在你电脑上的 `deepseek-auth.json` 里。消息会发给 DeepSeek，和普通聊天一样。
-
-</details>
-
-<details>
-<summary><strong>该选哪个模型？</strong></summary>
-
-只有一个模型，两个开关：
-
-| 模型 | 作用 |
-|---|---|
-| `deepseek-v4-flash` | 联网搜索后回答 |
-| `deepseek-v4-flash-thinking` | 先思考，再回答 |
-
-在任意一个后面加上 `-nosearch` 就会关闭联网搜索。
-
-</details>
-
-<details>
-<summary><strong>可以用多个账号吗？</strong></summary>
-
-可以。在控制台的 Settings → Accounts 里添加。两个代理同时工作需要两个登录。
-
-</details>
-
-<details>
-<summary><strong>突然用不了了怎么办？</strong></summary>
-
-按顺序试试：
-1. 更新：控制台的 Settings → Updates。
-2. 重新登录：`npm run auth`。
-3. 检查配置：`npm run doctor`。
-
-还不行的话，多半是 DeepSeek 改了什么。请[提交 issue](https://github.com/dekrezz/FreeDeepseekAPI/issues)。
-
-</details>
-
-<details>
-<summary><strong>怎么更新？</strong></summary>
-
-打开控制台的 Settings → Updates，点 **Check for updates**。`stable` 渠道的版本经过检查后才发布，`latest` 渠道最先收到每个版本。
-
-</details>
-
-<details>
-<summary><strong>其他设备能用吗？</strong></summary>
-
-默认只有你的电脑能访问。要共享的话，请设置 `PROXY_API_KEY`，并先阅读 [Running it safely](SECURITY.md#running-it-safely)。
-
-</details>
-
-<details>
-<summary><strong>支持 Windows、服务器或容器吗？</strong></summary>
-
-支持：[Windows](docs/zh/guide.md#windows)、[VPS](docs/zh/guide.md#vps--无界面)、[Podman](docs/zh/guide.md#rootless-podman)。
-
-</details>
-
-## 更多内容
-
-- [完整指南](docs/zh/guide.md)：详细说明和请求示例
-- [HTTP API](docs/api.md)：接口、错误和设置（英文）
-- [模型](docs/zh/models.md) · [账号与登录](docs/zh/auth.md) · [编程代理](docs/zh/agents.md)
-- [安全](SECURITY.md)：如何报告漏洞
+- [网页应用指南](docs/zh/guide.md)
+- [模型](docs/zh/models.md)
+- [账号登录](docs/zh/auth.md)
+- [安全](SECURITY.md)
 
 ## 许可证
 
