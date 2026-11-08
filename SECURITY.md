@@ -1,6 +1,6 @@
 # Security policy
 
-FreeDeepseekAPI is a local proxy. It keeps a DeepSeek Web login on your machine and exposes OpenAI and Anthropic endpoints on localhost. The default address is `http://127.0.0.1:9655`.
+FreeDeepseek Web is a browser-based application for managing and chatting with DeepSeek Web accounts. It does not expose a supported OpenAI, Anthropic, or third-party LLM API. The browser interface uses private application routes on the same server.
 
 ## Supported versions
 
@@ -14,35 +14,31 @@ https://github.com/dekrezz/FreeDeepseekAPI/security/advisories/new
 
 Do not open a public issue, pull request, or chat that contains any of these:
 
-- `deepseek-auth.json`, or any file from `accounts/`
+- DeepSeek account files such as `deepseek-auth.json` or files from `accounts/`
 - a token, cookie, or `PROXY_API_KEY`
 - a live DeepSeek session id
 
-Include the commit (`git rev-parse --short HEAD`), the command you ran, and what you expected instead. A short request with the secrets removed is enough.
-
-A valid report is answered on the advisory. The fix lands as a normal commit on `main`. The advisory is published after that fix is on `main`.
+Include the commit, the command you ran, and what you expected instead. A short request with secrets removed is enough.
 
 ## What we want to hear about
 
 - Auth files created or read with permissions looser than mode `600`
-- A client off this machine reaching the API while the server is bound only to loopback
-- `PROXY_API_KEY` ignored after it is set, or `REQUIRE_PROXY_API_KEY` failing open
-- A token, cookie, or proxy key copied into logs, error JSON, or a response body
+- A remote client reaching the application when it is bound only to loopback
+- `PROXY_API_KEY` ignored after it is set
+- A token, cookie, or key copied into logs, error JSON, or a response body
 - One local client reading or continuing another account's DeepSeek session
 - Path or header handling that escapes the account files you configured
 
 ## What this policy does not cover
 
-- DeepSeek rate-limiting, closing, or banning a web account. This project talks to [chat.deepseek.com](https://chat.deepseek.com). That site can change or refuse a login.
-- Binding `HOST` to `0.0.0.0` or any public address without `PROXY_API_KEY`. The server prints a warning. That is the configuration you chose.
-- Putting an auth file into an issue, a chat, or a coding agent.
-- The model following a prompt, or a coding agent using the local tools you enabled.
+- DeepSeek rate-limiting, closing, or banning a web account. This project talks to [chat.deepseek.com](https://chat.deepseek.com), which can change or refuse a login.
+- Binding `HOST` to `0.0.0.0` or a public address without protecting the web interface. That is the configuration you chose.
+- Putting an auth file into an issue, a chat, or another application.
 
 ## Running it safely
 
-- Leave the bind at `127.0.0.1` unless you mean to share the port. On any other bind, set `TLS_CERT_FILE` and `TLS_KEY_FILE` so the login import and the Authorization header are not clear text. Loopback does not need TLS.
-- Keep `deepseek-auth.json` and `accounts/*.json` out of git. `npm run auth` writes them mode `600`.
-- Set `PROXY_API_KEY` before the port is reachable past your own user. Without it, connections from outside this machine are closed before any HTTP is read.
-- With a key, one outside address gets 600 requests a minute and 64 open connections, and 10 wrong keys lock it out for 15 minutes. Loopback is not limited. Behind a reverse proxy, set `TRUST_PROXY=1`, or every client counts as the proxy itself. See [HTTP API](docs/api.md) for the settings.
-- These limits slow abuse. They do not hide the port: on a public bind, a firewall or VPN is what keeps scanners away.
-- One DeepSeek login serves one chat at a time. A second client on that same login waits.
+- Leave the bind at `127.0.0.1` unless remote browser access is intentional.
+- Keep `deepseek-auth.json` and `accounts/*.json` out of git. `npm run auth` writes account data with restrictive permissions.
+- If you expose the web interface beyond your own machine, set `PROXY_API_KEY`, use HTTPS, and protect the service with a firewall or VPN.
+- Do not treat the internal `/app/*` or `/admin/*` routes as a public API. They exist only for the web interface and may change.
+- One DeepSeek login serves one chat at a time. Additional chats using the same login wait.
