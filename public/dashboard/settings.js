@@ -41,25 +41,23 @@
   F.prefs.applyAll();
   systemDark.addEventListener('change', () => { if (F.prefs.get('theme') === 'system') F.prefs.apply('theme', 'system'); });
 
-  const st = { root: null, els: {}, health: null, healthError: null, visible: false, snippet: 'openai',
+  const st = { root: null, els: {}, health: null, healthError: null, visible: false,
     update: { status: null, error: null, channel: null, check: null, phase: 'idle', message: null } };
 
   function mount(root) {
     st.root = root;
     const key = h('div', { class: 'set-group' });
-    const conn = h('div', { class: 'set-stack' });
     const server = h('div', { class: 'set-stack' });
     const updates = h('div', { class: 'set-stack' });
     const appearance = h('div', { class: 'set-group' });
     const chat = h('div', { class: 'set-stack' });
     root.append(h('div', { class: 'view-pad settings' },
       section(F.t('Access key'), F.t('The PROXY_API_KEY this dashboard signs its requests with'), key),
-      section(F.t('Connection'), F.t('Point any OpenAI- or Anthropic-compatible client at this proxy'), conn),
       section(F.t('Server'), F.t('Facts from GET /health'), server),
       section(F.t('Updates'), F.t('Stable gets a release once it has been checked. Latest gets every release first.'), updates),
       section(F.t('Appearance'), null, appearance),
       section(F.t('Chat data'), F.t('Stored in this browser only, for {origin}. 127.0.0.1 and localhost keep separate stores.', { origin: location.origin }), chat)));
-    Object.assign(st.els, { key, conn, server, updates, appearance, chat });
+    Object.assign(st.els, { key, server, updates, appearance, chat });
     F.on('accounts', () => { if (st.visible) renderServer(); });
   }
 
@@ -134,36 +132,7 @@
       h('div', { class: 'auth-body' }, form)));
   }
 
-  // Code colouring (F.colorize) lives in core.js, shared with the Agents file viewer.
-  function renderConn() {
-    const base = location.origin;
-    const keyRef = '$PROXY_API_KEY';
-    const snippets = {
-      openai: { label: 'OpenAI SDK', lang: 'Python', code: `from openai import OpenAI\n\nclient = OpenAI(base_url="${base}/v1", api_key="${keyRef}")\nreply = client.chat.completions.create(\n    model="deepseek-v4-flash",\n    messages=[{"role": "user", "content": "Hello"}],\n)\nprint(reply.choices[0].message.content)` },
-      anthropic: { label: 'Anthropic SDK', lang: 'Python', code: `from anthropic import Anthropic\n\nclient = Anthropic(base_url="${base}", api_key="${keyRef}")\nreply = client.messages.create(\n    model="deepseek-v4-flash",\n    max_tokens=1024,\n    messages=[{"role": "user", "content": "Hello"}],\n)\nprint(reply.content[0].text)` },
-      curl: { label: 'curl', lang: 'Shell', code: `curl ${base}/v1/chat/completions \\\n  -H "Authorization: Bearer ${keyRef}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"deepseek-v4-flash","messages":[{"role":"user","content":"Hello"}]}'` },
-    };
-    const lang = h('span', { class: 'code-lang' });
-    const code = h('code');
-    const copy = h('button', { type: 'button', class: 'code-btn' }, F.icon('copy'), h('span', { class: 'btn-label', text: F.t('Copy') }));
-    copy.addEventListener('click', () => F.copy(snippets[st.snippet].code, copy));
-    const show = (name) => {
-      st.snippet = name;
-      lang.textContent = snippets[name].lang;
-      code.replaceChildren(...F.colorize(snippets[name].code, snippets[name].lang));
-      copy.setAttribute('aria-label', `Copy the ${snippets[name].label} example`);
-    };
-    const tabs = F.segmented(F.t('Client example'), Object.entries(snippets).map(([value, s]) => ({ value, label: s.label })), st.snippet, show);
-    tabs.classList.add('segmented-sm');
-    show(st.snippet);
-    const urlValue = h('span', { class: 'set-url' }, h('code', { class: 'mono-id', text: `${base}/v1` }), F.copyBtn(`${base}/v1`, F.t('Copy base URL')));
-    st.els.conn.replaceChildren(
-      h('div', { class: 'set-group' }, row(F.t('Base URL'), F.t('OpenAI-style clients use /v1. Anthropic SDKs take the origin without /v1.'), urlValue)),
-      h('div', { class: 'codeblock set-code' },
-        h('div', { class: 'code-head' }, tabs, h('span', { class: 'code-actions' }, lang, copy)),
-        h('pre', { class: 'code-pre code-vs', tabindex: '0' }, code)),
-      h('p', { class: 'settings-foot', text: 'Opening this dashboard or calling the proxy from a browser on another machine needs that page\'s origin in PROXY_CORS_ORIGINS, or the proxy answers 403 cors_error.' }));
-  }
+  // The dashboard is the only supported client; external connection snippets are intentionally absent.
 
   async function loadHealth() {
     try {
@@ -460,7 +429,6 @@
 
   function render() {
     renderKey();
-    renderConn();
     renderServer();
     renderUpdates();
     renderAppearance();
