@@ -366,8 +366,7 @@
     const add = F.btn(F.t('Add account'), { kind: 'primary', icon: 'plus', onclick: (e) => openAdd(e.currentTarget) });
     return h('div', { class: 'empty' },
       h('p', { class: 'empty-title', text: F.t('No accounts are loaded.') }),
-      h('p', { class: 'empty-text', text: 'Add a DeepSeek login exported by the DeepSeek Auth Exporter extension, or import one from a terminal and reload:' }),
-      F.codeLine('npm run auth:import'),
+      h('p', { class: 'empty-text', text: 'Add a DeepSeek login exported by the DeepSeek Auth Exporter extension.' }),
       h('div', { class: 'empty-actions' }, add, F.btn(F.t('Reload from disk'), { icon: 'reload', onclick: (e) => reload(e.currentTarget) })));
   }
 
@@ -495,7 +494,7 @@
     const list = Array.from(byModel, ([k, v]) => ({ key: k, label: fmt.shortModel(k), title: k, value: v, valueText: fmt.compact(v) })).sort((x, y) => y.value - x.value);
     if (list.length) F.charts.hbars(bars, list, { label: 'Tokens by model on this account', top: 5 });
     body.append(section('Tokens by model', list.length ? bars : h('p', { class: 'quiet', text: 'No requests on this account in the request log.' }),
-      h('p', { class: 'meta', text: `Lifetime: ${fmt.int(a.usage.requests)} requests, ${fmt.compact(tokens(a))} tokens ≈, ${fmt.usd(a.usage.usd)} ≈ at API prices. The breakdown covers the requests still in the log.` })));
+      h('p', { class: 'meta', text: `Lifetime: ${fmt.int(a.usage.requests)} requests, ${fmt.compact(tokens(a))} tokens ≈, ${fmt.usd(a.usage.usd)} ≈ at reference prices. The breakdown covers the requests still in the log.` })));
 
     // links + remove
     body.append(h('div', { class: 'insp-links' },
