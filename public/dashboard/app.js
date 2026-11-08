@@ -5,7 +5,7 @@
 
   const F = window.FDSA;
   const { h, fmt } = F;
-  const VIEWS = ['chat', 'status', 'accounts', 'usage', 'requests', 'agents', 'settings'];
+  const VIEWS = ['chat', 'status', 'accounts', 'usage', 'requests', 'settings'];
   const $ = (id) => document.getElementById(id);
 
   const app = { view: null, route: null };
@@ -372,7 +372,6 @@
       { label: F.t('Go to Accounts'), icon: 'accounts', run: () => F.navigate('accounts') },
       { label: F.t('Go to Usage'), icon: 'usage', run: () => F.navigate('usage') },
       { label: F.t('Go to Requests'), icon: 'requests', run: () => F.navigate('requests') },
-      { label: F.t('Go to Agents'), icon: 'agent', run: () => F.navigate('agents') },
       { label: F.t('Go to Settings'), icon: 'settings', run: () => F.navigate('settings') },
       { label: F.t('Show errors in Requests'), icon: 'error-x', run: () => F.navigate('requests', '', { status: 'error' }) },
       { label: F.t('Reload accounts from disk'), icon: 'reload', run: () => { F.navigate('accounts'); setTimeout(() => { const b = document.querySelector('#toolbar-actions [data-action="reload"]'); F.views.accounts.reload(b); }, 0); } },
@@ -385,11 +384,6 @@
       if (a.status === 'disabled' && a.disabled_by === 'admin') items.push({ label: F.t('Resume account: {name}', { name }), icon: 'play', run: () => F.views.accounts.action(a, 'enable') });
       if (a.status === 'cooldown') items.push({ label: F.t('Clear cooldown: {name}', { name }), icon: 'clear-cooldown', run: () => F.views.accounts.action(a, 'clear-cooldown') });
     }
-    for (const a of F.views.agents.catalog()) {
-      items.push({ label: F.t('Agent: {name}', { name: a.name }), detail: a.state, icon: 'agent', run: () => F.navigate('agents', a.id) });
-      items.push({ label: F.t('Files: {name}', { name: a.name }), icon: 'files', run: () => F.navigate('agents', a.id, { show: 'disk' }) });
-    }
-    items.push({ label: F.t('Agent restore points'), icon: 'undo', run: () => F.navigate('agents', '', { section: 'backups' }) });
     for (const c of F.views.chat.conversations().slice(0, 50)) {
       items.push({ label: F.t('Chat: {title}', { title: c.title }), detail: fmt.ago(c.updatedAt, Date.now()), icon: 'chat', run: () => F.navigate('chat', c.id) });
     }
@@ -465,7 +459,7 @@
       if (F.closePopover()) { e.preventDefault(); return; }
       if (closeChatsSheet()) { e.preventDefault(); $('toggle-chats').focus(); return; }
       if (F.inspector.isOpen) { e.preventDefault(); F.inspector.close(); return; }
-      // A view with its own depth (an agent's page) steps back before the window closes.
+      // Close the current view before leaving the page.
       const cur = F.views[app.view];
       if (cur.onEscape && app.view !== 'chat' && cur.onEscape()) { e.preventDefault(); return; }
       if (closeSettings()) { e.preventDefault(); return; }
@@ -474,7 +468,7 @@
     }
     if (mod || e.altKey || isTyping(e.target) || F.gate.mode || document.querySelector('dialog[open]')) return;
     if (gPending && Date.now() - gPending < 800) {
-      const map = { c: 'chat', s: 'status', a: 'accounts', u: 'usage', r: 'requests', e: 'agents' };
+      const map = { c: 'chat', s: 'status', a: 'accounts', u: 'usage', r: 'requests' };
       gPending = 0;
       if (map[e.key]) { e.preventDefault(); F.navigate(map[e.key]); }
       return;
