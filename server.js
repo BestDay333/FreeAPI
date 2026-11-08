@@ -4337,7 +4337,7 @@ async function handleAdminRequest(req, res, url) {
             if (parts[2] === 'reload') {
                 const result = adminReloadAccounts();
                 if (!result.ok) {
-                    adminError(res, 422, 'no_accounts_found', 'No auth account could be loaded. The current pool is unchanged. Import one with npm run auth:import -- --output ./accounts/<name>.json.', {}, { errors: result.errors });
+                    adminError(res, 422, 'no_accounts_found', 'No account session could be loaded. The current account pool is unchanged. Add an account in Dashboard settings.', {}, { errors: result.errors });
                     return;
                 }
                 const now = Date.now();
@@ -5814,8 +5814,8 @@ async function main() {
         console.log('[DS-API] GET  /app/models — models available to the web chat');
         console.log('[DS-API] GET  /app/model-capabilities — web chat model capabilities');
         console.log('[DS-API] GET  /app/sessions — active web chat sessions');
-        console.log('[DS-API] POST /app/reset-session?agent=<id> — reset agent session');
-        console.log('[DS-API] POST /app/reset-session?agent=all — reset ALL sessions');
+        console.log('[DS-API] POST /app/reset-session?agent=<id> — reset chat session');
+        console.log('[DS-API] POST /app/reset-session?agent=all — reset all chat sessions');
         console.log(`[DS-API] GET  /dashboard — web interface (/admin/* backend${PROXY_API_KEY || PROXY_ADMIN_ALLOW_REMOTE ? '' : ', localhost only'})`);
         // A restart after an update keeps the tab the user already has open.
         if (startup.openDashboard && process.env.FDSA_RESTARTED !== '1') {
