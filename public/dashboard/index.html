@@ -20,7 +20,6 @@
   <script src="/dashboard/requests.js" defer></script>
   <script src="/dashboard/settings.js" defer></script>
   <script src="/dashboard/chat.js" defer></script>
-  <script src="/dashboard/agents.js" defer></script>
   <script src="/dashboard/app.js" defer></script>
 </head>
 <body>
@@ -187,10 +186,6 @@
             <li><a class="nav-item nav-pick" href="#/usage" data-nav="usage"><svg class="icon icon-nav" aria-hidden="true"><use href="#i-usage"/></svg><span class="nav-text"><span class="nav-title" data-i18n="Usage">Usage</span><span class="nav-desc" data-i18n="Tokens and requests over time">Tokens and requests over time</span></span><svg class="icon nav-check" aria-hidden="true"><use href="#i-check"/></svg></a></li>
             <li><a class="nav-item nav-pick" href="#/requests" data-nav="requests"><svg class="icon icon-nav" aria-hidden="true"><use href="#i-requests"/></svg><span class="nav-text"><span class="nav-title" data-i18n="Requests">Requests</span><span class="nav-desc" data-i18n="Every call through the proxy">Every call through the proxy</span></span><svg class="icon nav-check" aria-hidden="true"><use href="#i-check"/></svg></a></li>
           </ul>
-          <p class="settings-nav-title" data-i18n="Connect">Connect</p>
-          <ul class="nav-list" role="list">
-            <li><a class="nav-item nav-pick" href="#/agents" data-nav="agents"><svg class="icon icon-nav" aria-hidden="true"><use href="#i-agent"/></svg><span class="nav-text"><span class="nav-title" data-i18n="Agents">Agents</span><span class="nav-desc" data-i18n="Point coding agents at this proxy">Point coding agents at this proxy</span></span><svg class="icon nav-check" aria-hidden="true"><use href="#i-check"/></svg></a></li>
-          </ul>
           </div>
           <p class="settings-nav-empty" id="settings-nav-empty" data-i18n="Nothing matches." hidden>Nothing matches.</p>
         </nav>
@@ -201,7 +196,6 @@
             <section class="view" id="view-accounts" data-view="accounts" hidden></section>
             <section class="view" id="view-usage" data-view="usage" hidden></section>
             <section class="view" id="view-requests" data-view="requests" hidden></section>
-            <section class="view" id="view-agents" data-view="agents" hidden></section>
             <section class="view" id="view-settings" data-view="settings" hidden></section>
           </main>
           <aside class="inspector glass glass-thick" id="inspector" aria-labelledby="inspector-title" hidden>
