@@ -204,7 +204,7 @@
 
   async function loadModels() {
     try {
-      const body = await F.api('GET', '/v1/models');
+      const body = await F.api('GET', '/app/models');
       const list = (body.data || []).map(m => m.id);
       if (!list.length) throw new F.ApiError('GET /v1/models returned no models.', { type: 'no_models' });
       S.models.list = body.data;
@@ -223,7 +223,7 @@
       S.models.error = e;
     }
     try {
-      const caps = await F.api('GET', '/v1/model-capabilities');
+      const caps = await F.api('GET', '/app/model-capabilities');
       S.models.caps = caps.data || {};
       S.models.capsError = null;
     } catch (e) {
@@ -994,15 +994,15 @@
         conv.needsReset = false;
         saveConv(conv);
       }
-      const res = await fetch('/v1/chat/completions', {
+      const res = await fetch('/app/chat', {
         method: 'POST',
         cache: 'no-store',
         credentials: 'omit',
         signal: controller.signal,
         headers: F.authHeaders({ 'Content-Type': 'application/json', Accept: 'text/event-stream', 'x-agent-session': agentFor(conv), ...(F.chatAccount && F.chatAccount.get() ? { 'x-account-id': F.chatAccount.get() } : {}) }),
         body: JSON.stringify({ model: conv.model, stream: true, messages: buildMessages(conv, a) }),
-      }).catch((e) => { if (controller.signal.aborted) throw e; throw F.networkError(e, 'POST /v1/chat/completions'); });
-      if (!res.ok) throw await F.errorFromResponse(res, 'POST /v1/chat/completions');
+      }).catch((e) => { if (controller.signal.aborted) throw e; throw F.networkError(e, 'POST /app/chat'); });
+      if (!res.ok) throw await F.errorFromResponse(res, 'POST /app/chat');
       a.meta.account = res.headers.get('x-account-id') || null;
       a.meta.compacted = /^(1|true)$/i.test(res.headers.get('x-freedeepseek-context-compacted') || '');
       const type = res.headers.get('content-type') || '';
@@ -1267,7 +1267,7 @@
     const box = h('div', { class: 'session-pop' }, h('p', { class: 'meta', text: 'Loading…' }));
     F.popover(trigger, box, { width: 320, label: 'Server session' });
     try {
-      const body = await F.api('GET', '/v1/sessions');
+      const body = await F.api('GET', '/app/sessions');
       const s = (body.agents || []).find(x => x.agent === agentFor(conv));
       if (!s) {
         box.replaceChildren(h('p', { class: 'session-title', text: 'No server session' }), h('p', { class: 'meta', text: 'The proxy holds no session for this chat (none yet, it was reset, or the server restarted). The next message sends the full transcript.' }));
