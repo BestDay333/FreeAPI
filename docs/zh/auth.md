@@ -1,29 +1,23 @@
-# 鉴权
+# 账号与登录
 
-`deepseek-auth.json` 是 chat.deepseek.com 的有效 Web 会话。权限 `600`。不要提交到 git。
+应用会在本地保存 DeepSeek 网页账号会话。
 
-| 命令 | 作用 |
-|---|---|
-| `npm run auth` | 菜单：登录 / 导入 / 状态 |
-| `npm run deepseek:auth` | 用 Chrome 采集 token 和 cookies |
-| `npm run auth:import` | 导入 `deepseek-auth.json` 或浏览器 cookies |
-| `npm run doctor` | 校验文件；去掉 `--offline` 还会打 PoW |
+## 第一个账号
 
-Chrome 扩展：在已打开的 `chat.deepseek.com` 标签页加载 `chrome-extension/`。等到 **Token: Ready** 再 Save File。不要把 JSON 贴进聊天。
-
-字段：`token`、`cookie`、`wasmUrl`（`https://*.deepseek.com` 地址）。可选 `hif_dliq`、`hif_leim`。文件里写 `enabled: false` 会暂停该登录。示例：[`auth.example.json`](../../auth.example.json)。
-
-## 多个账号
-
-一个 Web 登录同一时刻只能跑一个聊天。两个 Agent 或两个 OpenCode 会话并行，就准备 2–3 个文件：
+运行：
 
 ```bash
-mkdir -p accounts
-npm run auth:import -- --input ~/Downloads/deepseek-auth.json --output ./accounts/worker-2.json
+npm run auth
 ```
 
-代理会加载 `./deepseek-auth.json` 以及 `./accounts/*.json`。也可用 `DEEPSEEK_AUTH_DIR` 指定目录，或在 `DEEPSEEK_AUTH_PATH` 里用逗号列出文件。加完文件后重启服务。
+Chrome 会打开 DeepSeek 登录页面。登录后，会话将保存在本地供网页应用使用。
 
-给每个客户端不同的 `x-agent-session`。不能把某个登录绑到某个客户端：代理自己选空闲的。同一登录上的第二个请求会排队等待，而不会并行发出（并行会被 DeepSeek 封禁数天）。
+## 添加其他账号
 
-协议细节见 [HTTP API](../api.md)。
+在 Dashboard 中打开 **账号 → 添加账号**。使用 DeepSeek Auth Exporter 浏览器扩展，从已登录的 DeepSeek 标签页导出会话文件，然后直接在 Dashboard 中导入。
+
+账号文件必须保持私密，不能提交到 git。应用会使用严格的文件权限保存这些文件。
+
+## 并发
+
+一个 DeepSeek 网页账号同一时间只能处理一个活跃聊天。如果多个对话使用同一账号，它们会排队等待。多个账号可以同时处理更多对话。
