@@ -1,27 +1,23 @@
-# Auth
+# Accounts and sign-in
 
-`deepseek-auth.json` is a live Web session. Mode `600`. Do not commit it.
+The application stores DeepSeek Web account sessions locally.
 
-| Command | What |
-|---|---|
-| `npm run auth` | Menu: login / import / status |
-| `npm run deepseek:auth` | Chrome capture of token + cookies |
-| `npm run auth:import` | Import `deepseek-auth.json` or browser cookie export |
-| `npm run doctor` | Validate files; omit `--offline` to hit PoW |
+## First account
 
-Chrome extension: `chrome-extension/` on an open `chat.deepseek.com` tab. Collect until **Token** is Ready, then Save File. Do not paste the JSON into chat.
-
-Fields: `token`, `cookie`, `wasmUrl` (an `https://*.deepseek.com` address). Optional: `hif_dliq`, `hif_leim`, `name` (label), `enabled` (`false` pauses the login). See [`auth.example.json`](../auth.example.json).
-
-## Pool (2–3 accounts)
-
-One login = one in-flight chat. For two agents or two OpenCode sessions at once, import a second session:
+Run:
 
 ```bash
-mkdir -p accounts
-npm run auth:import -- --input ~/Downloads/deepseek-auth.json --output ./accounts/worker-2.json
+npm run auth
 ```
 
-The proxy also loads `./accounts/*.json` next to the default `deepseek-auth.json`. Override with `DEEPSEEK_AUTH_DIR` or a comma list in `DEEPSEEK_AUTH_PATH`. You cannot pin a client to a specific login; the proxy picks a free one. A second chat on the same login waits instead of overlapping.
+Chrome opens for DeepSeek sign-in. The session is saved locally for the web application.
 
-HTTP details: [`api.md`](api.md).
+## Additional accounts
+
+Open **Accounts → Add account** in the Dashboard. Use the DeepSeek Auth Exporter browser extension to export a session file from a signed-in DeepSeek tab, then import that file in the Dashboard.
+
+Account files must remain private and must never be committed to git. The application stores them with restrictive file permissions.
+
+## Concurrency
+
+One DeepSeek Web login can serve one active chat at a time. If several conversations use the same account, they wait in a queue. Multiple accounts allow more conversations to run at once.
