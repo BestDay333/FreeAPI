@@ -17,7 +17,7 @@
     firstRender: true,
   };
 
-  const API_OPTIONS = [{ value: '', label: 'All endpoints' }, { value: 'openai', label: 'OpenAI chat' }, { value: 'anthropic', label: 'Anthropic messages' }, { value: 'responses', label: 'Responses' }];
+  const API_OPTIONS = [{ value: '', label: 'All requests' }, { value: 'web', label: 'Web chat' }];
 
   function mount(root) {
     st.root = root;
@@ -29,7 +29,7 @@
     const table = h('table', { class: 'data-table requests-table rows-clickable' });
     table.append(h('caption', { class: 'sr-only', text: F.t('Recent requests, newest first') }));
     table.append(h('thead', null, h('tr', null,
-      h('th', { scope: 'col', text: 'Time' }), h('th', { scope: 'col', text: 'Status' }), h('th', { scope: 'col', text: 'Endpoint' }),
+      h('th', { scope: 'col', text: 'Time' }), h('th', { scope: 'col', text: 'Status' }), h('th', { scope: 'col', text: 'Type' }),
       h('th', { scope: 'col', text: 'Model' }), h('th', { scope: 'col', text: 'Account' }), h('th', { scope: 'col', text: 'Client' }),
       h('th', { scope: 'col', class: 'num', text: 'In ≈' }), h('th', { scope: 'col', class: 'num', text: 'Out ≈' }), h('th', { scope: 'col', class: 'num', text: 'Latency' }))));
     const tbody = h('tbody');
@@ -106,7 +106,7 @@
     st.els.selects.replaceChildren(
       F.select('Account', [{ value: '', label: 'All accounts' }].concat(Array.from(accounts).sort().map(a => ({ value: a, label: (F.accountById(a) && F.accountById(a).name) || a }))), st.f.account, (v) => { st.f.account = v; changed(); }),
       F.select('Model', [{ value: '', label: 'All models' }].concat(Array.from(models).sort().map(m => ({ value: m, label: fmt.shortModel(m) }))), st.f.model, (v) => { st.f.model = v; changed(); }),
-      F.select('Endpoint', API_OPTIONS, st.f.api, (v) => { st.f.api = v; changed(); }));
+      F.select('Request type', API_OPTIONS, st.f.api, (v) => { st.f.api = v; changed(); }));
   }
 
   function rowEl(r) {
