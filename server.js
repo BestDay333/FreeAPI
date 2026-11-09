@@ -5115,12 +5115,21 @@ async function handleRequest(req, res) {
                 };
 
                 const decoder = new TextDecoder();  // one instance: preserves multi-byte (Cyrillic/emoji) split across chunks
+                let previousDataLine = null;
                 for await (const chunk of readable) {
                     buffer += decoder.decode(chunk, { stream: true });
                     const lines = buffer.split('\n');
                     buffer = lines.pop() || '';
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
+                            // The DeepSeek web stream delivers every event twice (an
+                            // identical repeated JSON line). Applying both copies doubles
+                            // every fragment APPEND patch, which corrupts tool-call
+                            // markup and blanks continuation replies. The official
+                            // client applies each event once, so dedupe consecutive
+                            // identical data lines before parsing.
+                            if (line === previousDataLine) continue;
+                            previousDataLine = line;
                             try {
                                 const d = JSON.parse(line.slice(6));
                                 if (d.response_message_id !== undefined && !newMessageId) newMessageId = d.response_message_id;
@@ -5716,7 +5725,12 @@ async function handleRequest(req, res) {
                     requestContinuation: async toolResultsPrompt => {
                         const recoveryPrompt = appendPromptInstruction(freshPrompt, toolResultsPrompt);
                         const next = await callDeepSeekWithFailover(toolResultsPrompt, recoveryPrompt);
-                        const read = await readDeepSeekResponse(next.call.resp.body, next.call.account);
+                        // callDeepSeekWithFailover already consumed resp.body and
+                        // parsed it into next.result. Reading next.call.resp.body
+                        // again yields an empty stream, which blanked every
+                        // continuation reply (the model's follow-up text was lost
+                        // even though the workspace actions themselves succeeded).
+                        const read = next.result;
                         if (read.rateLimited) throw read.rateLimitError;
                         return {
                             content: sanitizeContent(read.content || ''),
