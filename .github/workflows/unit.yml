@@ -9,6 +9,9 @@ on:
       - "lib/**"
       - "scripts/**"
       - "tests/**"
+      - "public/dashboard/**"
+      - "README*"
+      - "docs/**"
       - "integrations/**"
       - "package.json"
       - ".github/workflows/unit.yml"
@@ -34,7 +37,6 @@ jobs:
         with:
           node-version: "20"
       - name: Syntax
-        if: github.event_name == 'pull_request'
         run: npm run test:syntax
       - name: Unit tests
         run: npm run test:unit

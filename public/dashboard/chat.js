@@ -221,7 +221,9 @@
         renderComposer();
         return;
       }
-      S.models.error = e;
+      S.models.error = e.status === 404
+        ? new F.ApiError('The running server does not provide GET /app/models. Stop older FreeAPI processes and start this checkout from its project folder with npm run dashboard.', { status: 404, type: 'server_route_missing', endpoint: 'GET /app/models' })
+        : e;
     }
     try {
       const caps = await F.api('GET', '/app/model-capabilities');
@@ -1318,6 +1320,226 @@
     F.toast(`Deleted "${conv.title}".`, { action: { label: 'Undo', run: () => { clearTimeout(timer); S.pendingDeletes.delete(conv.id); renderList(); F.navigate('chat', conv.id); } } });
   }
 
+
+  // ================================================================ workspace file manager
+  async function openFileManager() {
+    const conv = active();
+    if (!conv) { F.toast(F.t('Open a chat first'), { tone: 'info' }); return; }
+    if (document.querySelector('.workspace-manager-layer')) return;
+    const agent = agentFor(conv);
+    let currentPath = '', selectedPath = '', dirty = false, listingToken = 0;
+    const layer = h('div', { class: 'workspace-manager-layer' });
+    const windowEl = h('section', { class: 'workspace-manager-window', role: 'dialog', 'aria-modal': 'true', 'aria-label': F.t('File manager') });
+    const title = h('h2', { class: 'workspace-manager-title', text: F.t('File manager') });
+    const chatTitle = h('span', { class: 'workspace-manager-chat', text: conv.title });
+    const closeBtn = F.iconBtn('close', F.t('Close'));
+    const head = h('header', { class: 'workspace-manager-head' }, F.icon('files'), title, chatTitle, closeBtn);
+    const crumbs = h('nav', { class: 'workspace-manager-path', 'aria-label': F.t('Workspace') });
+    const refreshBtn = F.btn(F.t('Refresh'), { kind: 'ghost', size: 'sm', icon: 'refresh' });
+    const newFileBtn = F.btn(F.t('New file'), { kind: 'secondary', size: 'sm', icon: 'plus' });
+    const newFolderBtn = F.btn(F.t('New folder'), { kind: 'secondary', size: 'sm', icon: 'plus' });
+    const toolbar = h('div', { class: 'workspace-manager-toolbar' }, crumbs, refreshBtn, newFileBtn, newFolderBtn);
+    const list = h('div', { class: 'workspace-manager-list' });
+    const filesPanel = h('aside', { class: 'workspace-manager-files' }, h('div', { class: 'workspace-manager-files-head', text: F.t('Files') }), list);
+    const previewName = h('span', { class: 'workspace-manager-preview-name', text: F.t('Select a file to preview') });
+    const saveBtn = F.btn(F.t('Save'), { kind: 'primary', size: 'sm', icon: 'check', disabled: true });
+    const downloadBtn = F.btn(F.t('Download'), { kind: 'secondary', size: 'sm', icon: 'download', disabled: true });
+    const previewHead = h('div', { class: 'workspace-manager-preview-head' }, previewName, downloadBtn, saveBtn);
+    const editor = h('textarea', { class: 'workspace-manager-editor', spellcheck: 'false', 'aria-label': F.t('File contents'), placeholder: F.t('Select a file to preview'), disabled: true, hidden: true });
+    const previewEmpty = h('div', { class: 'workspace-manager-empty', text: F.t('Select a file to preview') });
+    const previewContent = h('div', { class: 'workspace-manager-preview-content' }, previewEmpty, editor);
+    const preview = h('div', { class: 'workspace-manager-preview' }, previewHead, previewContent);
+    const status = h('div', { class: 'workspace-manager-status', role: 'status' });
+    windowEl.append(head, toolbar, h('div', { class: 'workspace-manager-body' }, filesPanel, preview), status);
+    layer.append(windowEl); document.body.append(layer);
+
+    function setStatus(message, tone) {
+      status.textContent = message || '';
+      status.className = 'workspace-manager-status' + (tone ? ' is-' + tone : '');
+    }
+    function apiOptions(timeout = 30000) { return { timeout, headers: { 'x-agent-session': agent } }; }
+    function sizeText(value) {
+      if (!Number.isFinite(value)) return '';
+      if (value < 1024) return value + ' B';
+      if (value < 1024 * 1024) return (value / 1024).toFixed(1) + ' KiB';
+      if (value < 1024 * 1024 * 1024) return (value / 1024 / 1024).toFixed(1) + ' MiB';
+      return (value / 1024 / 1024 / 1024).toFixed(1) + ' GiB';
+    }
+    function canDiscard() {
+      if (!dirty) return true;
+      if (!window.confirm(F.t('Discard unsaved changes?'))) return false;
+      editor.value = editor.dataset.savedContent || ''; dirty = false; saveBtn.disabled = true;
+      return true;
+    }
+    function renderCrumbs() {
+      crumbs.replaceChildren();
+      const add = (label, path) => {
+        const button = h('button', { type: 'button', class: 'workspace-manager-crumb', text: label });
+        button.addEventListener('click', () => loadDirectory(path));
+        crumbs.append(button);
+      };
+      add(F.t('Workspace'), '');
+      let path = '';
+      for (const part of currentPath.split('/').filter(Boolean)) {
+        crumbs.append(h('span', { class: 'meta', text: '/' }));
+        path = path ? path + '/' + part : part; add(part, path);
+      }
+    }
+    function clearPreview(message = F.t('Select a file to preview')) {
+      selectedPath = ''; dirty = false; previewName.textContent = message;
+      editor.value = ''; editor.disabled = true; editor.hidden = true;
+      previewEmpty.hidden = false; previewEmpty.textContent = message;
+      saveBtn.disabled = true; downloadBtn.disabled = true; downloadBtn.onclick = null;
+    }
+    function renderEntries(entries, truncated) {
+      list.replaceChildren();
+      if (!entries.length) list.append(h('div', { class: 'workspace-manager-empty', text: F.t('No files in this folder') }));
+      for (const entry of entries) {
+        const isDirectory = entry.type === 'directory';
+        const row = h('div', { class: 'workspace-manager-file-row' + (selectedPath === entry.path ? ' is-selected' : '') });
+        const main = h('button', { type: 'button', class: 'workspace-manager-file-main', title: entry.path },
+          F.icon('files'), h('span', { class: 'workspace-manager-file-name', text: entry.name }),
+          h('span', { class: 'workspace-manager-file-size', text: isDirectory ? '' : sizeText(entry.size) }));
+        main.addEventListener('click', () => isDirectory ? loadDirectory(entry.path) : openFile(entry));
+        row.append(main);
+        const actions = h('div', { class: 'workspace-manager-row-actions' });
+        if (entry.type === 'file' && entry.download_url) {
+          const button = F.iconBtn('download', F.t('Download'));
+          button.addEventListener('click', () => window.location.assign(entry.download_url)); actions.append(button);
+        }
+        if (entry.type !== 'link') {
+          const rename = F.iconBtn('edit', F.t('Rename')); rename.addEventListener('click', () => renameEntry(entry));
+          const remove = F.iconBtn('trash', F.t('Delete')); remove.addEventListener('click', () => deleteEntry(entry));
+          actions.append(rename, remove);
+        }
+        row.append(actions); list.append(row);
+      }
+      if (truncated) list.append(h('div', { class: 'workspace-manager-ellipsis', text: F.t('More than 500 items; showing the first 500.') }));
+    }
+    async function loadDirectory(path) {
+      if (path !== currentPath && !canDiscard()) return;
+      const token = ++listingToken; currentPath = path; renderCrumbs();
+      list.replaceChildren(h('div', { class: 'workspace-manager-empty', text: F.t('Loading files…') }));
+      setStatus(F.t('Loading files…'));
+      try {
+        const data = await F.api('GET', '/app/workspace/files?path=' + encodeURIComponent(path), apiOptions());
+        if (token !== listingToken) return;
+        renderEntries(data.entries || [], data.truncated); setStatus(path || F.t('Workspace'));
+      } catch (error) {
+        if (!F.handleGate(error)) {
+          list.replaceChildren(h('div', { class: 'workspace-manager-empty', text: F.errorText(error) }));
+          setStatus(F.t('Could not load workspace files') + ': ' + F.errorText(error), 'error');
+        }
+      }
+    }
+    async function postAction(body) { return F.api('POST', '/app/workspace/files', { body, ...apiOptions(90000) }); }
+    async function openFile(entry) {
+      if (!canDiscard()) return;
+      selectedPath = entry.path;
+      try {
+        const file = await F.api('GET', '/app/workspace/file?path=' + encodeURIComponent(entry.path), apiOptions(60000));
+        selectedPath = file.path; previewName.textContent = file.path;
+        previewEmpty.hidden = true; editor.hidden = false; editor.disabled = false;
+        editor.value = file.content; editor.dataset.savedContent = file.content;
+        dirty = false; saveBtn.disabled = true; downloadBtn.disabled = false;
+        downloadBtn.onclick = () => { if (file.download_url) window.location.assign(file.download_url); };
+        setStatus(sizeText(file.size) + ' · ' + F.t('Saved'), 'ok');
+        const data = await F.api('GET', '/app/workspace/files?path=' + encodeURIComponent(currentPath), apiOptions());
+        renderEntries(data.entries || [], data.truncated);
+      } catch (error) {
+        if (!F.handleGate(error)) {
+          clearPreview(error.type === 'binary_file' ? F.t('Binary files cannot be previewed. Download it instead.') : F.t('Could not open file') + ': ' + F.errorText(error));
+          if (error.type === 'binary_file' && entry.download_url) {
+            downloadBtn.disabled = false; downloadBtn.onclick = () => window.location.assign(entry.download_url);
+          }
+          setStatus(F.errorText(error), 'error');
+        }
+      }
+    }
+    async function saveFile() {
+      if (!selectedPath || editor.disabled || !dirty) return;
+      saveBtn.disabled = true;
+      try {
+        await postAction({ action: 'write', path: selectedPath, content: editor.value });
+        editor.dataset.savedContent = editor.value; dirty = false;
+        setStatus(sizeText(new Blob([editor.value]).size) + ' · ' + F.t('Saved'), 'ok');
+        F.toast(F.t('Workspace file saved'), { tone: 'success' });
+        await loadDirectory(currentPath);
+      } catch (error) {
+        saveBtn.disabled = false;
+        if (!F.handleGate(error)) {
+          setStatus(F.t('Could not save file') + ': ' + F.errorText(error), 'error');
+          F.toastError(F.t('Could not save file'), error);
+        }
+      }
+    }
+    async function createFile() {
+      if (!canDiscard()) return;
+      const raw = window.prompt(F.t('File path'), currentPath ? currentPath + '/' : '');
+      if (!raw || !raw.trim()) return;
+      const path = raw.trim();
+      try {
+        await postAction({ action: 'write', path, content: '' });
+        const parent = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+        currentPath = parent; await loadDirectory(parent);
+        await openFile({ path, name: path.split('/').pop(), type: 'file', size: 0 });
+        F.toast(F.t('Workspace file created'), { tone: 'success' });
+      } catch (error) { if (!F.handleGate(error)) F.toastError(F.t('Could not save file'), error); }
+    }
+    async function createFolder() {
+      if (!canDiscard()) return;
+      const raw = window.prompt(F.t('Folder path'), currentPath ? currentPath + '/' : '');
+      if (!raw || !raw.trim()) return;
+      try {
+        await postAction({ action: 'mkdir', path: raw.trim() });
+        await loadDirectory(currentPath);
+        F.toast(F.t('Workspace folder created'), { tone: 'success' });
+      } catch (error) { if (!F.handleGate(error)) F.toastError(F.t('Could not load workspace files'), error); }
+    }
+    async function renameEntry(entry) {
+      if (!canDiscard()) return;
+      const raw = window.prompt(F.t('Rename to'), entry.name);
+      if (!raw || !raw.trim() || raw.trim() === entry.name) return;
+      const newPath = currentPath ? currentPath + '/' + raw.trim() : raw.trim();
+      try {
+        await postAction({ action: 'rename', path: entry.path, new_path: newPath });
+        if (selectedPath === entry.path || selectedPath.startsWith(entry.path + '/')) clearPreview();
+        await loadDirectory(currentPath);
+        F.toast(F.t('Workspace item renamed'), { tone: 'success' });
+      } catch (error) { if (!F.handleGate(error)) F.toastError(F.t('Could not load workspace files'), error); }
+    }
+    async function deleteEntry(entry) {
+      if (!canDiscard()) return;
+      if (!window.confirm(F.t('Delete this item?') + '\n' + entry.path)) return;
+      try {
+        await postAction({ action: 'delete', path: entry.path });
+        if (selectedPath === entry.path || selectedPath.startsWith(entry.path + '/')) clearPreview();
+        await loadDirectory(currentPath);
+        F.toast(F.t('Workspace item deleted'), { tone: 'success' });
+      } catch (error) { if (!F.handleGate(error)) F.toastError(F.t('Could not load workspace files'), error); }
+    }
+    function close() {
+      if (dirty && !window.confirm(F.t('Close without saving?'))) return;
+      layer.remove(); document.removeEventListener('keydown', onKeyDown, true);
+    }
+    function onKeyDown(event) {
+      if (event.key === 'Escape') { event.preventDefault(); close(); }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); saveFile(); }
+    }
+    editor.addEventListener('input', () => {
+      dirty = editor.value !== editor.dataset.savedContent;
+      saveBtn.disabled = !dirty;
+      setStatus(dirty ? F.t('Unsaved changes') : F.t('Saved'), dirty ? '' : 'ok');
+    });
+    closeBtn.addEventListener('click', close);
+    refreshBtn.addEventListener('click', () => loadDirectory(currentPath));
+    newFileBtn.addEventListener('click', createFile);
+    newFolderBtn.addEventListener('click', createFolder);
+    saveBtn.addEventListener('click', saveFile);
+    document.addEventListener('keydown', onKeyDown, true);
+    clearPreview(); await loadDirectory('');
+  }
+
   // ================================================================ init
   async function init() {
     await store.open();
@@ -1369,10 +1591,12 @@
         F.toast(F.t(S.workMode ? 'Workspace mode enabled' : 'Workspace mode disabled'), { tone: 'info' });
       });
       const conv = active();
-      if (!conv) return [workspace];
+      const files = F.iconBtn('files', F.t('File manager'), { disabled: !conv });
+      files.addEventListener('click', openFileManager);
+      if (!conv) return [workspace, files];
       const more = F.iconBtn('more', 'Conversation actions', { 'aria-haspopup': 'menu', 'aria-expanded': 'false' });
       more.addEventListener('click', () => convMenu(more));
-      return [workspace, more];
+      return [workspace, files, more];
     },
     // Esc: stop the running answer in the open conversation.
     onEscape() {

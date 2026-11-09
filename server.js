@@ -92,6 +92,7 @@ const PORT = envNumber('PORT', 9655);
 const HOST = process.env.HOST || '127.0.0.1';
 
 const WORKSPACE_ROOT = path.resolve(process.env.WORKSPACE_ROOT || path.join(__dirname, 'data', 'workspaces'));
+const WORKSPACE_EDITOR_MAX_BODY_BYTES = 21 * 1024 * 1024;
 function loadWorkspaceDownloadSecret() {
     if (process.env.WORKSPACE_DOWNLOAD_SECRET) return Buffer.from(process.env.WORKSPACE_DOWNLOAD_SECRET, 'utf8');
     const file = path.resolve(process.env.WORKSPACE_DOWNLOAD_SECRET_FILE || path.join(path.dirname(WORKSPACE_ROOT), '.workspace-download-secret'));
@@ -4669,6 +4670,49 @@ async function handleRequest(req, res) {
         return;
     }
 
+    // File manager: every operation is restricted to the workspace identified by this chat.
+    if (req.method === 'GET' && (url.pathname === '/app/workspace/files' || url.pathname === '/app/workspace/file')) {
+        const agentId = req.headers['x-agent-session'];
+        if (typeof agentId !== 'string' || !/^[A-Za-z0-9:_-]{1,256}$/.test(agentId)) {
+            jsonResponse(res, 400, { error: { message: 'A valid x-agent-session header is required.', type: 'invalid_workspace_agent' } });
+            return;
+        }
+        try {
+            const manager = workspaceForAgent(agentId);
+            const result = url.pathname === '/app/workspace/files'
+                ? await manager.listFiles(url.searchParams.get('path') || '')
+                : await manager.readFile(url.searchParams.get('path') || '');
+            jsonResponse(res, 200, result, { 'Cache-Control': 'private, no-store' });
+        } catch (error) {
+            jsonResponse(res, error.status || 500, { error: { message: error.message || 'Workspace operation failed.', type: error.type || 'workspace_error' } });
+        }
+        return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/app/workspace/files') {
+        const agentId = req.headers['x-agent-session'];
+        if (typeof agentId !== 'string' || !/^[A-Za-z0-9:_-]{1,256}$/.test(agentId)) {
+            jsonResponse(res, 400, { error: { message: 'A valid x-agent-session header is required.', type: 'invalid_workspace_agent' } });
+            return;
+        }
+        try {
+            const body = await readAdminJsonBody(req, WORKSPACE_EDITOR_MAX_BODY_BYTES);
+            const manager = workspaceForAgent(agentId);
+            let result;
+            switch (body.action) {
+                case 'write': result = await manager.writeFile(body.path, body.content); break;
+                case 'mkdir': result = await manager.createDirectory(body.path); break;
+                case 'rename': result = await manager.renameFile(body.path, body.new_path); break;
+                case 'delete': result = await manager.deleteFile(body.path); break;
+                default: throw new AdminHttpError(422, 'invalid_workspace_action', 'Unknown workspace file action.');
+            }
+            jsonResponse(res, 200, result, { 'Cache-Control': 'private, no-store' });
+        } catch (error) {
+            jsonResponse(res, error.status || 500, { error: { message: error.message || 'Workspace operation failed.', type: error.type || 'workspace_error' } });
+        }
+        return;
+    }
+
     // Dashboard: public static page (no data); it calls the gated /admin API.
     if (req.method === 'GET' && isDashboardPath(url.pathname)) {
         try {
@@ -4892,7 +4936,7 @@ async function handleRequest(req, res) {
             const webFlags = resolveRequestWebFlags(requestedModel, rawParams);
             const workspaceMode = rawParams.workspace_mode === true;
             if (workspaceMode) {
-                activeRequestDeadlineMs = Math.max(REQUEST_DEADLINE_MS, envNumber('WORKSPACE_REQUEST_DEADLINE_MS', 15 * 60 * 1000));
+                activeRequestDeadlineMs = Math.max(REQUEST_DEADLINE_MS, envNumber('WORKSPACE_REQUEST_DEADLINE_MS', 30 * 60 * 1000));
             }
             const offeredTools = workspaceMode ? workspaceToolDefinitions() : params.tools;
             const webAccess = prepareAgentWebAccess(offeredTools, webFlags.search_enabled);

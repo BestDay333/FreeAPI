@@ -1,8 +1,12 @@
 # Local workspace
 
-Workspace commands execute on the same computer that runs the FreeAPI server. If FreeAPI is running on the user's PC, no VDS is involved.
+Workspace tools run on the same computer as the FreeAPI server. Each conversation gets its own persistent directory under `data/workspaces/`.
 
-## Setup
+## File manager
+
+Open the folder/files button in the chat toolbar. The manager is scoped to the active conversation and supports directory browsing, text preview and editing, save, create file/folder, rename, delete, and download. Directories can only be deleted when empty. Binary and non-UTF-8 files are downloadable but are not opened in the text editor.
+
+## Install
 
 On Arch Linux / CachyOS:
 
@@ -11,25 +15,27 @@ sudo pacman -S bubblewrap util-linux
 npm run workspace:check
 ```
 
-Bubblewrap creates isolated Linux namespaces. Only the current conversation's workspace is mounted writable. System software is read-only; the user's home directory, `/run`, `/mnt`, and the Docker socket are not mounted.
+Bubblewrap creates Linux namespaces. Only the active conversation workspace is writable; host home directories, `/mnt`, and Docker sockets are not mounted. System directories are read-only.
 
-## Files
+## Limits
 
-Workspace files are stored locally under `data/workspaces/`, with one directory per conversation. They survive FreeAPI restarts and are excluded from Git.
+- Text file read/write: 20 MiB.
+- Public HTTP(S) downloads: 500 MiB.
+- Shell output: 4 MiB.
+- One command: up to 5 minutes.
+- Workspace request deadline: 30 minutes by default.
+- 16 tool actions per model pass.
+- Process address-space limit: 12 GiB; 768 processes; maximum file size: 1 GiB.
 
-Deliverables can be downloaded from the chat's workspace file browser. The dedicated downloader allows public HTTP(S) addresses and blocks local/private network targets.
+Actual build speed and memory availability depend on the host computer.
 
-## Commands and internet
+## Network
 
-Shell commands run inside a Linux namespace. Network access for shell commands is disabled by default; the model should enable it only when a task requires package installs or Git downloads. The dedicated `workspace_download` tool can fetch public HTTP(S) files separately.
+Shell networking is disabled by default and can be enabled per command. The dedicated downloader blocks localhost, private/reserved addresses, and unsafe redirects.
 
-Command execution is bounded by wall time, CPU time, process count, file size and output limits. It cannot see the host home directory or other host files.
-
-## Verification
+## Verify
 
 ```bash
 npm run workspace:check
 npm test
 ```
-
-The sandbox check should print `Local workspace sandbox is ready`. If namespace creation is denied, check whether unprivileged user namespaces are enabled by the kernel.

@@ -236,13 +236,13 @@
   );
 
   // JSON API call. Errors throw ApiError with the server's message and type.
-  F.api = async (method, path, { body, timeout = 15000, signal } = {}) => {
+  F.api = async (method, path, { body, timeout = 15000, signal, headers: extraHeaders = {} } = {}) => {
     const endpoint = `${method} ${path.split('?')[0]}`;
     const controller = new AbortController();
     let timedOut = false;
     const timer = timeout ? setTimeout(() => { timedOut = true; controller.abort(); }, timeout) : null;
     if (signal) signal.addEventListener('abort', () => controller.abort(), { once: true });
-    const headers = F.authHeaders({ Accept: 'application/json' });
+    const headers = F.authHeaders({ Accept: 'application/json', ...extraHeaders });
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     let res;
     try {

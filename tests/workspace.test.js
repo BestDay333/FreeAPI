@@ -50,7 +50,10 @@ test('workspace files can be created, read, listed and safely downloaded', async
     const listed = (await manager.listFiles('projects/demo')).entries[0];
     assert.equal(listed.name, 'hello.txt');
     assert.ok(listed.download_url);
-    const opened = await manager.openDownload('projects/demo/hello.txt');
+    const renamed = await manager.renameFile('projects/demo/hello.txt', 'projects/demo/welcome.txt');
+    assert.equal(renamed.new_path, 'projects/demo/welcome.txt');
+    assert.equal((await manager.readFile('projects/demo/welcome.txt')).content, 'Привет, мир!');
+    const opened = await manager.openDownload('projects/demo/welcome.txt');
     assert.equal(opened.stat.size, Buffer.byteLength('Привет, мир!'));
     await opened.handle.close();
 });
@@ -98,10 +101,10 @@ test('workspace commands run locally through Bubblewrap with a restricted mount 
     assert.equal(result.runner, 'bubblewrap');
     const call = fake.calls[0];
     assert.equal(call.command, 'prlimit');
-    assert.ok(call.args.includes('--as=8589934592'));
-    assert.ok(call.args.includes('--nproc=512'));
-    assert.ok(call.args.includes('--fsize=268435456'));
-    assert.ok(call.args.includes('--cpu=180'));
+    assert.ok(call.args.includes('--as=12884901888'));
+    assert.ok(call.args.includes('--nproc=768'));
+    assert.ok(call.args.includes('--fsize=1073741824'));
+    assert.ok(call.args.includes('--cpu=300'));
     const bwrapIndex = call.args.indexOf('bwrap');
     assert.ok(bwrapIndex > 0, 'Bubblewrap is launched through prlimit');
     const args = call.args.slice(bwrapIndex + 1);
@@ -159,7 +162,7 @@ test('workspace dispatcher exposes only declared workspace actions', async t => 
     await assert.rejects(executeWorkspaceTool(env.manager, 'exec_host_shell', {}), { type: 'unknown_tool' });
     assert.deepEqual(workspaceToolDefinitions().map(item => item.function.name), [
         'workspace_list_files', 'workspace_read_file', 'workspace_write_file', 'workspace_create_directory',
-        'workspace_delete_file', 'workspace_download', 'workspace_run', 'workspace_archive'
+        'workspace_delete_file', 'workspace_rename_file', 'workspace_download', 'workspace_run', 'workspace_archive'
     ]);
 });
 
@@ -181,6 +184,6 @@ test('workspace tool results stay valid JSON when file content or command output
     assert.equal(parsed.path, 'large.txt');
     assert.equal(parsed.truncated, true);
     assert.equal(parsed.size, 60000);
-    assert.equal(parsed.content.length, 12000);
-    assert.ok(result.length <= 48000);
+    assert.equal(parsed.content.length, 24000);
+    assert.ok(result.length <= 96000);
 });
