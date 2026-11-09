@@ -37,6 +37,13 @@ const probe = run(binary, [
     '--unshare-user', '--disable-userns', '--assert-userns-disabled', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net',
     '--ro-bind', '/usr', '/usr',
     '--ro-bind', '/etc', '/etc',
+    // Same compatibility symlinks as lib/workspace.js: distros with a
+    // root-level /lib64 -> usr/lib symlink (Arch/CachyOS) need them for the
+    // ELF interpreter to resolve, otherwise execvp fails with ENOENT.
+    '--symlink', 'usr/bin', '/bin',
+    '--symlink', 'usr/bin', '/sbin',
+    '--symlink', 'usr/lib', '/lib',
+    '--symlink', 'usr/lib', '/lib64',
     '--proc', '/proc', '--dev', '/dev', '--tmpfs', '/tmp',
     '--dir', '/workspace', '--chdir', '/workspace',
     '/usr/bin/printf', 'workspace-sandbox-ready'
