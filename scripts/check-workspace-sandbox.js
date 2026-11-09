@@ -32,7 +32,18 @@ if (limiterCheck.error || limiterCheck.status !== 0) {
     process.exit(1);
 }
 
-const probe = run(binary, [
+// Run the probe through the same prlimit wrapper (and limits) as the real
+// runner in lib/workspace.js, otherwise the check can pass while actual
+// commands fail inside the sandbox (e.g. a too-low --nproc makes
+// clone(CLONE_NEWUSER) fail with "Resource temporarily unavailable").
+const sandboxNproc = Math.max(256, Number(process.env.WORKSPACE_SANDBOX_NPROC) || 4096);
+const probe = run(limiter, [
+    '--as=12884901888',
+    '--nproc=' + sandboxNproc,
+    '--fsize=1073741824',
+    '--cpu=300',
+    '--',
+    binary,
     '--die-with-parent', '--new-session',
     '--unshare-user', '--disable-userns', '--assert-userns-disabled', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net',
     '--ro-bind', '/usr', '/usr',
