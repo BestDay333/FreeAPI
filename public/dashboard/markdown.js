@@ -28,9 +28,14 @@
     const url = String(raw || '').trim();
     if (!url) return null;
     try {
-      const u = new URL(url);
-      if (u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'mailto:') return u.href;
-    } catch (e) { /* relative or malformed: rendered as text */ }
+      const currentOrigin = typeof location !== 'undefined' && location.origin ? location.origin : 'https://localhost';
+      const absoluteWeb = /^https?:\/\//i.test(url);
+      const absoluteMail = /^mailto:/i.test(url);
+      const u = new URL(url, currentOrigin);
+      if (absoluteMail && u.protocol === 'mailto:') return u.href;
+      if (absoluteWeb && (u.protocol === 'http:' || u.protocol === 'https:')) return u.href;
+      if (!absoluteWeb && !absoluteMail && u.origin === currentOrigin && (u.protocol === 'http:' || u.protocol === 'https:')) return u.href;
+    } catch (e) { /* malformed or unsafe URL */ }
     return null;
   }
 

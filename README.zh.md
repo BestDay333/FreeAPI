@@ -49,3 +49,17 @@ npm run dashboard
 ## 许可证
 
 Apache-2.0. Copyright 2026 dekrezz.
+
+## 工作区模式
+
+聊天界面中提供可选的**工作区模式**。启用后，助手可以在独立工作区中列出、读取、创建和删除文件，下载公开 HTTP(S) 文件，创建 ZIP 压缩包并运行命令。
+
+命令在独立的非 root Docker 容器中运行。容器只挂载当前对话的工作区；根文件系统只读，并限制 CPU、内存、进程数、运行时间和输出量。命令默认无法访问网络。独立下载器会拒绝本地和私有网络地址。
+
+首次使用前构建运行镜像：
+
+```bash
+npm run workspace:build
+```
+
+需要已安装并运行的 Docker Engine。也可以通过设置 `WORKSPACE_CONTAINER_RUNTIME=podman` 使用 Podman。工作区文件保存在 `data/workspaces/`，不会提交到 Git。下载链接经过签名，有效期为 24 小时。

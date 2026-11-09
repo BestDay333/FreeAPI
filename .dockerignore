@@ -1,0 +1,11 @@
+# Keep local state, credentials and repository history out of the build context.
+.git
+node_modules
+data/workspaces
+data/.workspace-download-secret
+accounts
+deepseek-auth.json
+auth.json
+.env
+.env.*
+*.pem

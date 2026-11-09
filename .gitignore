@@ -9,3 +9,5 @@ auth.json
 .freedeepseek-api/
 accounts/*.json
 /accounts/*.json
+data/workspaces/
+data/.workspace-download-secret

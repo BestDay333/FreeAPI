@@ -50,3 +50,15 @@ npm run dashboard
 - 运行 `npm run doctor` 检查本地配置。
 - 如果 DeepSeek 登录过期，再次运行 `npm run auth`。
 - 如果 Dashboard 无法连接服务器，请检查终端输出。
+
+## 工作区模式
+
+在聊天工具栏中点击终端图标即可启用**工作区模式**。助手随后可以使用工作区文件、公开文件下载、ZIP 压缩包和 shell 命令工具。每个对话都有独立的持久目录。
+
+首次运行命令前，先构建隔离运行镜像：
+
+```bash
+npm run workspace:build
+```
+
+需要运行中的 Docker Engine。设置 `WORKSPACE_CONTAINER_RUNTIME=podman` 可改用 Podman。命令以非 root 用户身份运行，容器唯一可写的宿主机挂载目录是当前对话的工作区。容器根文件系统只读，并设置资源和时间限制；网络默认关闭。独立下载器只允许公开 HTTP(S) 地址。

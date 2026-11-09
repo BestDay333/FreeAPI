@@ -50,3 +50,15 @@ The server listens on `127.0.0.1` by default. Keep it there unless you deliberat
 - Run `npm run doctor` to inspect the local setup.
 - If DeepSeek sign-in expires, run `npm run auth` again.
 - Check the terminal output if the dashboard cannot reach the server.
+
+## Workspace mode
+
+Enable **Workspace mode** with the terminal button in the chat toolbar. The assistant then receives tools for workspace files, public downloads, ZIP archives, and shell commands. Each conversation has its own persistent directory.
+
+Build the isolated command image before using shell commands:
+
+```bash
+npm run workspace:build
+```
+
+Docker Engine must be running. Set `WORKSPACE_CONTAINER_RUNTIME=podman` to use Podman instead. Shell commands run as an unprivileged user in a container whose only writable host mount is that conversation's workspace. The container root is read-only, resource and time limits are applied, and network access is off by default. The dedicated downloader allows public HTTP(S) addresses only.

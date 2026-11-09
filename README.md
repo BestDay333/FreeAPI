@@ -49,3 +49,17 @@ This is an unofficial integration with DeepSeek's web chat. DeepSeek can change 
 ## License
 
 Apache-2.0. Copyright 2026 dekrezz.
+
+## Workspace mode
+
+The chat has an optional **Workspace mode** switch. When enabled, the assistant can list, read, create and delete files in a persistent workspace, download public HTTP(S) files, create ZIP archives, and run shell commands.
+
+Commands run in a separate, non-root Docker container. Only the current conversation's workspace is mounted into it; the container has a read-only root filesystem, CPU/memory/process/time/output limits, and no network by default. The dedicated downloader rejects local and private network addresses. Internet access for a shell command is opt-in.
+
+Build the runtime image once:
+
+```bash
+npm run workspace:build
+```
+
+Docker Engine must be installed and running. Podman can be used by setting `WORKSPACE_CONTAINER_RUNTIME=podman`. Workspace files are stored under `data/workspaces/` and are excluded from Git. Download links are signed and expire after 24 hours.

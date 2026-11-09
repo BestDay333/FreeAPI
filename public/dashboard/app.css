@@ -260,6 +260,7 @@ path, circle, rect, ellipse, line, polyline { vector-effect: non-scaling-stroke;
 .title-input:focus, .title-input:focus-visible { outline: none; box-shadow: none; }
 .toolbar-right { display: flex; align-items: center; gap: 10px; flex: none; }
 .toolbar-actions { display: flex; align-items: center; gap: 8px; }
+.workspace-mode-toggle[aria-pressed=true] { color: var(--signal); background: var(--active-wash); box-shadow: inset 0 0 0 1px var(--signal); }
 .toolbar .toolbar-mobile { display: none; }
 
 .scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding-top: var(--toolbar-h); scroll-padding-top: calc(var(--toolbar-h) + 8px); outline: none; }

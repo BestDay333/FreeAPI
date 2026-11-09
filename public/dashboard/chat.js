@@ -168,6 +168,7 @@
     starting: new Set(),       // convIds whose edit or regenerate is persisting before run() registers
     models: { loaded: false, error: null, ids: new Set(), base: null, caps: {}, capsError: null, list: [] },
     think: false, search: true,
+    workMode: (() => { try { return localStorage.getItem('fdsa.chat.workMode') === '1'; } catch (e) { return false; } })(),
     attachments: [],
     pendingDeletes: new Map(),
     quota: false,
@@ -1000,7 +1001,7 @@
         credentials: 'omit',
         signal: controller.signal,
         headers: F.authHeaders({ 'Content-Type': 'application/json', Accept: 'text/event-stream', 'x-agent-session': agentFor(conv), ...(F.chatAccount && F.chatAccount.get() ? { 'x-account-id': F.chatAccount.get() } : {}) }),
-        body: JSON.stringify({ model: conv.model, stream: true, messages: buildMessages(conv, a) }),
+        body: JSON.stringify({ model: conv.model, stream: true, workspace_mode: S.workMode, messages: buildMessages(conv, a) }),
       }).catch((e) => { if (controller.signal.aborted) throw e; throw F.networkError(e, 'POST /app/chat'); });
       if (!res.ok) throw await F.errorFromResponse(res, 'POST /app/chat');
       a.meta.account = res.headers.get('x-account-id') || null;
@@ -1356,11 +1357,22 @@
       renderList();
     },
     actions() {
+      const workspace = F.iconBtn('workspace', F.t('Workspace mode'), {
+        cls: `workspace-mode-toggle${S.workMode ? ' is-active' : ''}`,
+        'aria-pressed': String(S.workMode),
+      });
+      workspace.addEventListener('click', () => {
+        S.workMode = !S.workMode;
+        try { localStorage.setItem('fdsa.chat.workMode', S.workMode ? '1' : '0'); } catch (e) { /* preference only */ }
+        workspace.classList.toggle('is-active', S.workMode);
+        workspace.setAttribute('aria-pressed', String(S.workMode));
+        F.toast(F.t(S.workMode ? 'Workspace mode enabled' : 'Workspace mode disabled'), { tone: 'info' });
+      });
       const conv = active();
-      if (!conv) return [];
+      if (!conv) return [workspace];
       const more = F.iconBtn('more', 'Conversation actions', { 'aria-haspopup': 'menu', 'aria-expanded': 'false' });
       more.addEventListener('click', () => convMenu(more));
-      return [more];
+      return [workspace, more];
     },
     // Esc: stop the running answer in the open conversation.
     onEscape() {

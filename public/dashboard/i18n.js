@@ -953,6 +953,9 @@
 
   const ru = Object.assign(Object.create(null), {
     "Chat": "Чат",
+    "Workspace mode": "Рабочая область",
+    "Workspace mode enabled": "Режим рабочей области включён",
+    "Workspace mode disabled": "Режим рабочей области выключен",
     "Status": "Статус",
     "Accounts": "Аккаунты",
     "Usage": "Использование",

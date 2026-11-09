@@ -94,3 +94,22 @@ test('the dashboard uses private web routes and no longer advertises external LL
   assert.doesNotMatch(settings, /OpenAI SDK|Anthropic SDK|\/v1\/chat\/completions/);
   assert.doesNotMatch(index, /data-nav="agents"|view-agents|dashboard\/agents\.js/);
 });
+
+test('workspace download URLs render as clickable same-origin markdown links', () => {
+  const markdown = fs.readFileSync(path.join(DASHBOARD_DIR, 'markdown.js'), 'utf8');
+  assert.match(markdown, /new URL\(url, currentOrigin\)/);
+  assert.match(markdown, /u\.origin === currentOrigin/);
+});
+
+test('the chat exposes workspace mode and sends its state with chat requests', () => {
+  const chat = fs.readFileSync(path.join(DASHBOARD_DIR, 'chat.js'), 'utf8');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const index = fs.readFileSync(path.join(DASHBOARD_DIR, 'index.html'), 'utf8');
+  assert.ok(chat.includes('fdsa.chat.workMode'));
+  assert.ok(chat.includes('workspace_mode: S.workMode'));
+  assert.ok(chat.includes("F.iconBtn('workspace'"));
+  assert.ok(server.includes('rawParams.workspace_mode === true'));
+  assert.ok(server.includes('runWorkspaceAgentLoop'));
+  assert.ok(server.includes('workspaceForAgent'));
+  assert.ok(index.includes('id="i-workspace"'));
+});
