@@ -5987,7 +5987,6 @@ module.exports = {
         useAgentContext(next) { const prev = agentCtxOverride; agentCtxOverride = next; return () => { agentCtxOverride = prev; }; },
         useAgentModule(next) { const prev = agentModuleLoader; agentModuleLoader = next; return () => { agentModuleLoader = prev; }; },
         useAgentApply(next) { const prev = agentApply; agentApply = next; return () => { agentApply = prev; }; },
-        agentsLocalDecision,
         adminAccountView,
         adminPoolSummary,
         recordRequest,
