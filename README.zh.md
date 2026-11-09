@@ -45,6 +45,7 @@ npm run dashboard
 - [模型](docs/zh/models.md)
 - [账号登录](docs/zh/auth.md)
 - [安全](SECURITY.md)
+- [工作区指南](docs/zh/workspace.md)
 
 ## 许可证
 
@@ -54,12 +55,13 @@ Apache-2.0. Copyright 2026 dekrezz.
 
 聊天界面中提供可选的**工作区模式**。启用后，助手可以在独立工作区中列出、读取、创建和删除文件，下载公开 HTTP(S) 文件，创建 ZIP 压缩包并运行命令。
 
-命令在独立的非 root Docker 容器中运行。容器只挂载当前对话的工作区；根文件系统只读，并限制 CPU、内存、进程数、运行时间和输出量。命令默认无法访问网络。独立下载器会拒绝本地和私有网络地址。
+命令直接在运行 FreeAPI 的这台电脑上执行，并由 Bubblewrap Linux 命名空间隔离。每个对话只有自己的工作区可写；用户主目录和其他主机文件不会挂载到执行环境。进程数、CPU 时间、文件大小、运行时间和输出量均有限制。Shell 网络默认关闭，需要下载依赖时才为该任务开启。独立下载器仅允许公开 HTTP(S) 地址。
 
-首次使用前构建运行镜像：
+Arch Linux / CachyOS 安装依赖：
 
 ```bash
-npm run workspace:build
+sudo pacman -S bubblewrap util-linux
+npm run workspace:check
 ```
 
-需要已安装并运行的 Docker Engine。也可以通过设置 `WORKSPACE_CONTAINER_RUNTIME=podman` 使用 Podman。工作区文件保存在 `data/workspaces/`，不会提交到 Git。下载链接经过签名，有效期为 24 小时。
+工作区文件保存在 `data/workspaces/`，不会提交到 Git。下载链接经过签名，有效期为 24 小时。

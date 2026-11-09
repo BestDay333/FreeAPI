@@ -45,6 +45,7 @@ This is an unofficial integration with DeepSeek's web chat. DeepSeek can change 
 - [Models](docs/models.md)
 - [Account login](docs/auth.md)
 - [Security](SECURITY.md)
+- [Workspace guide](docs/workspace.md)
 
 ## License
 
@@ -54,12 +55,13 @@ Apache-2.0. Copyright 2026 dekrezz.
 
 The chat has an optional **Workspace mode** switch. When enabled, the assistant can list, read, create and delete files in a persistent workspace, download public HTTP(S) files, create ZIP archives, and run shell commands.
 
-Commands run in a separate, non-root Docker container. Only the current conversation's workspace is mounted into it; the container has a read-only root filesystem, CPU/memory/process/time/output limits, and no network by default. The dedicated downloader rejects local and private network addresses. Internet access for a shell command is opt-in.
+Commands run directly on the computer hosting this FreeAPI process, inside a Bubblewrap Linux namespace. Only the current conversation's workspace is writable; the user's home directory and other host files are not mounted. CPU time, process count, file size, wall time and output are limited. Network access for shell commands is off by default and can be enabled for a task when needed. The dedicated downloader accepts public HTTP(S) addresses only.
 
-Build the runtime image once:
+On Arch Linux or CachyOS install the local sandbox dependency:
 
 ```bash
-npm run workspace:build
+sudo pacman -S bubblewrap util-linux
+npm run workspace:check
 ```
 
-Docker Engine must be installed and running. Podman can be used by setting `WORKSPACE_CONTAINER_RUNTIME=podman`. Workspace files are stored under `data/workspaces/` and are excluded from Git. Download links are signed and expire after 24 hours.
+Workspace files are stored under `data/workspaces/` and are excluded from Git. Download links are signed and expire after 24 hours.

@@ -8,6 +8,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const { PassThrough } = require('node:stream');
+const { spawnSync } = require('node:child_process');
 const { createWorkspaceManager, executeWorkspaceTool, normalizeRelativePath, isPublicIp, workspaceToolDefinitions } = require('../lib/workspace');
 
 async function temporaryManager(options = {}) {
@@ -87,34 +88,66 @@ test('public IP validation rejects local and reserved addresses', () => {
     assert.equal(isPublicIp('fe80::1'), false);
 });
 
-test('workspace commands use a locked-down Docker container and network is opt-in', async t => {
+test('workspace commands run locally through Bubblewrap with a restricted mount namespace', async t => {
     const fake = fakeSpawnFactory();
     const env = await temporaryManager({ spawnImpl: fake.spawnImpl });
     t.after(env.cleanup);
     const result = await env.manager.runCommand({ command: 'printf hello' });
     assert.equal(result.exit_code, 0);
     assert.equal(result.stdout, 'workspace command output\n');
+    assert.equal(result.runner, 'bubblewrap');
     const call = fake.calls[0];
-    assert.equal(call.command, 'docker');
-    assert.ok(call.args.includes('--read-only'));
-    assert.ok(call.args.includes('--cap-drop'));
-    assert.ok(call.args.includes('--security-opt'));
-    assert.ok(call.args.includes('--network'));
-    assert.equal(call.args[call.args.indexOf('--network') + 1], 'none');
-    const expectedUid = typeof process.getuid === 'function' && process.getuid() !== 0 ? process.getuid() : 10001;
-    const expectedGid = typeof process.getgid === 'function' && process.getgid() !== 0 ? process.getgid() : 10001;
-    assert.equal(call.args[call.args.indexOf('--user') + 1], expectedUid + ':' + expectedGid);
-    const mount = call.args[call.args.indexOf('--mount') + 1];
-    assert.ok(mount.includes(',dst=/workspace,rw'));
-    assert.equal(call.args.filter(arg => arg === '--mount').length, 1, 'only the conversation workspace is mounted');
-    assert.ok(call.args.includes('--memory'));
-    assert.ok(call.args.includes('--cpus'));
-    assert.ok(call.args.includes('--pids-limit'));
-    assert.equal(call.args[call.args.indexOf('--ulimit') + 1], 'fsize=268435456:268435456');
+    assert.equal(call.command, 'prlimit');
+    assert.ok(call.args.includes('--as=8589934592'));
+    assert.ok(call.args.includes('--nproc=512'));
+    assert.ok(call.args.includes('--fsize=268435456'));
+    assert.ok(call.args.includes('--cpu=180'));
+    const bwrapIndex = call.args.indexOf('bwrap');
+    assert.ok(bwrapIndex > 0, 'Bubblewrap is launched through prlimit');
+    const args = call.args.slice(bwrapIndex + 1);
+    for (const flag of ['--unshare-user', '--disable-userns', '--assert-userns-disabled', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net', '--ro-bind', '--proc', '--dev', '--tmpfs', '--bind', '--chdir', '--clearenv', '--setenv', '--cap-drop']) {
+        assert.ok(args.includes(flag), 'missing ' + flag);
+    }
+    const bindIndex = args.indexOf('--bind');
+    assert.equal(args[bindIndex + 1], env.root);
+    assert.equal(args[bindIndex + 2], '/workspace');
+    assert.equal(args.filter(arg => arg === '--bind').length, 1, 'only the conversation workspace is writable on the host');
+    assert.ok(!args.includes(process.env.HOME), 'host home directory is not mounted');
     await env.manager.runCommand({ command: 'npm install', network: true });
-    assert.equal(fake.calls[1].args[fake.calls[1].args.indexOf('--network') + 1], 'bridge');
+    const onlineArgs = fake.calls[1].args.slice(fake.calls[1].args.indexOf('bwrap') + 1);
+    assert.ok(!onlineArgs.includes('--unshare-net'), 'internet is enabled only when the tool opts in');
     await assert.rejects(env.manager.runCommand({ command: 'pwd', cwd: 'missing-directory' }), { type: 'not_found' });
     assert.equal(fake.calls.length, 2);
+});
+
+test('workspace reports a clear error when Bubblewrap or prlimit is missing', async t => {
+    const env = await temporaryManager({
+        spawnImpl() {
+            const error = new Error('spawn prlimit ENOENT');
+            error.code = 'ENOENT';
+            throw error;
+        }
+    });
+    t.after(env.cleanup);
+    await assert.rejects(
+        env.manager.runCommand({ command: 'printf hello' }),
+        error => error.type === 'sandbox_unavailable' && /pacman -S bubblewrap util-linux/.test(error.message)
+    );
+});
+
+test('real Bubblewrap smoke test hides host temporary files and writes only in the workspace', {
+    skip: process.platform !== 'linux' || spawnSync('bwrap', ['--version'], { stdio: 'ignore' }).status !== 0
+}, async t => {
+    const env = await temporaryManager();
+    t.after(env.cleanup);
+    const outside = path.join(os.tmpdir(), 'freeapi-workspace-host-' + process.pid + '.txt');
+    await fsp.writeFile(outside, 'host-only-secret');
+    t.after(() => fsp.rm(outside, { force: true }));
+    const command = 'test ! -e ' + JSON.stringify(outside) + ' && printf local-sandbox > result.txt && cat result.txt';
+    const result = await env.manager.runCommand({ command });
+    assert.equal(result.exit_code, 0, result.stderr);
+    assert.equal(result.stdout, 'local-sandbox');
+    assert.equal((await env.manager.readFile('result.txt')).content, 'local-sandbox');
 });
 
 test('workspace dispatcher exposes only declared workspace actions', async t => {
